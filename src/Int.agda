@@ -1,6 +1,6 @@
 module Int where
 
-open import Category.Monad
+open import Category.Monad.Indexed
 open import Data.Product
 open import Data.List
 open import Data.Nat
@@ -41,6 +41,7 @@ dual-involution SEnd! = refl
 dual-involution SEnd? = refl
 
 Ctx = List Ty
+SCtx = List STy
 
 data _∈_ {a : Set} (x : a) : List a → Set where
   here  : ∀ { xs } → x ∈ (x ∷ xs)
@@ -110,7 +111,11 @@ data Val : Ty → Set where
   VUnit : Val TUnit
   VInt : ℕ → Val TInt
   VPair : ∀ { t₁ t₂ } → Val t₁ → Val t₂ → Val (TPair t₁ t₂)
-  VChan : ∀ { s C } → (b : Bool) → (xdual b s) ∈ C → Val (TChan s)
+  VChan : ∀ { s } → (C : SCtx) → (b : Bool) → (p : (xdual b s) ∈ C) → Val (TChan s)
+
+getChanInfo : ∀ {s} → Val (TChan s) → Σ SCtx (λ C → Σ Bool (λ b → (xdual b s) ∈ C))
+getChanInfo (VChan C b p) = C , b , p
+
 
 -- typed environments
 data Env : Ctx → Set where
@@ -121,7 +126,7 @@ data Chan : STy → Set where
   CToken : (s : STy) → Chan s
 
 -- typed channel environements
-data CEnv : List STy → Set where
+data CEnv : SCtx → Set where
   [] : CEnv []
   _∷_ : ∀ { s C } (x : Chan s) (xs : CEnv C) → CEnv (s ∷ C)
 
@@ -129,12 +134,12 @@ lookup : ∀ {A t} → t ∈ A → Env A → Val t
 lookup here (t ∷ ϱ) = t
 lookup (there x) (x₁ ∷ ϱ) = lookup x ϱ
 
-simp-∈ : {s : STy} {C : List STy} → s ∈ C → dual (dual s) ∈ C
+simp-∈ : {s : STy} {C : SCtx} → s ∈ C → dual (dual s) ∈ C
 simp-∈ {s} s∈C rewrite dual-involution s = s∈C
 
 -- interpreter for expressions
-runExpr : ∀ {t} → {A : Ctx} {C : List STy} 
-  → Env A → CEnv C → Expr A t → Σ (List STy) λ C' → (CEnv C' × Val t)
+runExpr : ∀ {t} → {A : Ctx} {C : SCtx} 
+  → Env A → CEnv C → Expr A t → Σ SCtx λ C' → (CEnv C' × Val t)
 runExpr ϱ σ (var x) = _ , σ , lookup x ϱ
 runExpr ϱ σ (pair e₁ e₂) with runExpr ϱ σ e₁
 runExpr ϱ σ (pair e₁ e₂) | C₁ , σ₁ , v₁ with runExpr ϱ σ₁ e₂
@@ -144,7 +149,7 @@ runExpr ϱ σ (fst e) | C₁ , σ₁ , VPair v₁ v₂ = C₁ , σ₁ , v₁
 runExpr ϱ σ (snd e) with runExpr ϱ σ e
 runExpr ϱ σ (snd e) | C₁ , σ₁ , VPair v₁ v₂ = C₁ , σ₁ , v₂
 runExpr {t}{A}{C} ϱ σ (new s) =
-   s ∷ C ,  CToken s ∷ σ , VPair (VChan {s} {s ∷ C} true here) (VChan {dual s} {s ∷ C} false (simp-∈ here))
+   s ∷ C ,  CToken s ∷ σ , VPair (VChan (s ∷ C) true here) (VChan {dual s} (s ∷ C) false (simp-∈ here))
 runExpr ϱ σ (send e e₁) = {!!}
 runExpr ϱ σ (recv e) = {!!}
 runExpr ϱ σ (close e) = {!!}
@@ -155,7 +160,8 @@ data Result (A : Set) : Set where
   Return : (x : A) → Result A
   Next : Result A → Result A
   InputFrom : (t : Ty) → ℕ → (Val t → Result A) → Result A
-  OutputTo  : (t : Ty) → ℕ → Val t → Result A → Result A
+  OutputTo  : {t : Ty} {s : STy} → (C : SCtx) → (b : Bool) → (xdual b (SSend t s)) ∈ C → Val t
+            → ((c : Val (TChan (xdual b s))) → proj₁ (proj₂ (getChanInfo c)) ≡ b → Result A) → Result A
 
 return : ∀ {A} → A → Result A
 return = Return
@@ -164,25 +170,55 @@ _>>=_ : ∀ {A B} → Result A → (A → Result B) → Result B
 _>>=_ (Return x) frb = frb x
 _>>=_ (Next r) frb = Next (_>>=_ r frb)
 _>>=_ (InputFrom t x x₁) frb = InputFrom t x (λ z → _>>=_ (x₁ z) frb)
-_>>=_ (OutputTo t n v r) frb = OutputTo t n v (_>>=_ r frb)
+_>>=_ (OutputTo C t n v r) frb = OutputTo C t n v (λ z p → r z p >>= frb)
 
+{-
 -- make into a monad
 monadR : ∀ {f} → RawMonad Result
 monadR = record { return = Return
                 ; _>>=_  = _>>=_
                 }
+-}
 
 -- monadic interpreter for expressions
-runMon : ∀ {t} → {A : Ctx} {C : List STy} 
-  → Env A → CEnv C → Expr A t → Result (Σ (List STy) λ C' → (CEnv C' × Val t))
+runMon : ∀ {t} → {A : Ctx} {C : SCtx} 
+  → Env A → CEnv C → Expr A t → Result (Σ SCtx λ C' → (CEnv C' × Val t))
 runMon ϱ σ (var x) = return (_ , σ , lookup x ϱ)
-runMon ϱ σ (pair e₁ e₂) = runMon ϱ σ e₁ >>= (λ v₁ → 
-                          runMon ϱ (proj₁ (proj₂ v₁)) e₂ >>= λ v₂ → 
-                          return (proj₁ v₂ , proj₁ (proj₂ v₂) , VPair (proj₂ (proj₂ v₁)) (proj₂ (proj₂ v₂))))
+runMon ϱ σ (pair e₁ e₂) = 
+  runMon ϱ σ e₁ >>= (λ v₁ → 
+  runMon ϱ (proj₁ (proj₂ v₁)) e₂ >>= λ v₂ → 
+  return (proj₁ v₂ , proj₁ (proj₂ v₂) , VPair (proj₂ (proj₂ v₁)) (proj₂ (proj₂ v₂))))
 runMon ϱ σ (fst e) = {!!}
 runMon ϱ σ (snd e) = {!!}
-runMon ϱ σ (new s) = {!!}
-runMon ϱ σ (send e e₁) = {!!}
+runMon {t}{A}{C} ϱ σ (new s) =
+  return (s ∷ C ,  CToken s ∷ σ , VPair (VChan (s ∷ C) true here) (VChan (s ∷ C) false (simp-∈ here)))
+runMon ϱ σ (send e₁ e₂) =
+  runMon ϱ σ e₁ >>= λ v₁ →
+  runMon ϱ (proj₁ (proj₂ v₁)) e₂ >>= λ v₂ →
+  let vchan = getChanInfo (proj₂ (proj₂ v₁)) in
+  OutputTo (proj₁ vchan) (proj₁ (proj₂ vchan)) (proj₂ (proj₂ vchan)) (proj₂ (proj₂ v₂))
+  λ v₁' p → let vchan' = getChanInfo v₁' in return (proj₁ vchan' , {!!} , {!v₁'!})
 runMon ϱ σ (recv e) = {!!}
 runMon ϱ σ (close e) = {!!}
 runMon ϱ σ (wait e) = {!!}
+
+{-
+  OutputTo  : (t : Ty) → ℕ → Val t → Result A → Result A
+-}
+
+-- the real thing is an indexed monad
+-- 
+data Channels {a} (A : Set a) : Set a where
+  Ch : (C : SCtx) → (σ : CEnv C) → (Σ SCtx λ C' → (CEnv C' × A)) → Channels A
+
+data IChannels {a} : SCtx → SCtx → Set a → Set a where
+  Ch : (C : SCtx) → (C' : SCtx) → (A : Set a) → ((σ : CEnv C) → (CEnv C' × A)) → IChannels C C' A
+
+ireturn : ∀ {a} {A : Set a} {C} → A → IChannels C C A
+ireturn {a} {A} {C} x = Ch C C A (λ σ → σ , x)
+
+ibind : ∀ {a} {A B : Set a} {C C' C''} → IChannels C C' A → (A → IChannels C' C'' B) → IChannels C C'' B
+ibind {B = B} {C'' = C''} (Ch C C' A x) f = Ch C C'' B λ σ → 
+  let r = x σ
+      q = f (proj₂ r)
+  in {!!}
