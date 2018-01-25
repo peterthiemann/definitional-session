@@ -158,49 +158,75 @@ runExpr ϱ σ (wait e) = {!!}
 -- outcomes of a computation
 data Result (A : Set) : Set where
   Return : (x : A) → Result A
-  Next : Result A → Result A
-  InputFrom : (t : Ty) → ℕ → (Val t → Result A) → Result A
-  OutputTo  : {t : Ty} {s : STy} → (C : SCtx) → (b : Bool) → (xdual b (SSend t s)) ∈ C → Val t
-            → ((c : Val (TChan (xdual b s))) → proj₁ (proj₂ (getChanInfo c)) ≡ b → Result A) → Result A
+  Pause     : (cont : (C : SCtx) (σ : CEnv C) → Result A)
+            → Result A
+  InputFrom : {t : Ty} {s : STy} 
+            → (C : SCtx)
+            → (b : Bool)
+            → (p : (xdual b (SRecv t s)) ∈ C)
+            → (σ : CEnv C)
+            → (cont : (c : Val (TChan (xdual b s)))
+                    → Val t
+                    → (σ' : CEnv (proj₁ (getChanInfo c)))
+                    → Result A)
+            → Result A
+  OutputTo  : {t : Ty} {s : STy}
+            → (C : SCtx)
+            → (b : Bool)
+            → (xdual b (SSend t s)) ∈ C → Val t
+            → (σ : CEnv C)
+            → (cont : (c : Val (TChan (xdual b s)))
+                    → proj₁ (proj₂ (getChanInfo c)) ≡ b
+                    → (σ' : CEnv (proj₁ (getChanInfo c))) 
+                    → Result A)
+            → Result A
 
 return : ∀ {A} → A → Result A
 return = Return
 
 _>>=_ : ∀ {A B} → Result A → (A → Result B) → Result B
-_>>=_ (Return x) frb = frb x
-_>>=_ (Next r) frb = Next (_>>=_ r frb)
-_>>=_ (InputFrom t x x₁) frb = InputFrom t x (λ z → _>>=_ (x₁ z) frb)
-_>>=_ (OutputTo C t n v r) frb = OutputTo C t n v (λ z p → r z p >>= frb)
+Return x               >>= frb = frb x
+Pause cont             >>= frb = Pause λ C σ → cont C σ >>= frb 
+InputFrom C b p σ cont >>= frb = InputFrom C b p σ (λ c z σ' → cont c z σ' >>= frb)
+OutputTo C t n v σ r   >>= frb = OutputTo C t n v σ (λ z p a → r z p a >>= frb)
 
-{-
--- make into a monad
-monadR : ∀ {f} → RawMonad Result
-monadR = record { return = Return
-                ; _>>=_  = _>>=_
-                }
--}
 
 -- monadic interpreter for expressions
 runMon : ∀ {t} → {A : Ctx} {C : SCtx} 
   → Env A → CEnv C → Expr A t → Result (Σ SCtx λ C' → (CEnv C' × Val t))
 runMon ϱ σ (var x) = return (_ , σ , lookup x ϱ)
-runMon ϱ σ (pair e₁ e₂) = 
-  runMon ϱ σ e₁ >>= (λ v₁ → 
-  runMon ϱ (proj₁ (proj₂ v₁)) e₂ >>= λ v₂ → 
-  return (proj₁ v₂ , proj₁ (proj₂ v₂) , VPair (proj₂ (proj₂ v₁)) (proj₂ (proj₂ v₂))))
-runMon ϱ σ (fst e) = {!!}
-runMon ϱ σ (snd e) = {!!}
+runMon {TPair t₁ t₂} ϱ σ (pair e₁ e₂) = 
+  runMon ϱ σ e₁ >>= λ csv₁ →
+  runMon ϱ (proj₁ (proj₂ csv₁)) e₂ >>= λ csv₂ →
+  return (proj₁ csv₂ , proj₁ (proj₂ csv₂) , VPair (proj₂ (proj₂ csv₁)) (proj₂ (proj₂ csv₂)))
+runMon ϱ σ (fst e) =
+  runMon ϱ σ e >>= f
+  where
+    f : ∀ {t₁} {t₂} → Σ SCtx (λ C' → CEnv C' × Val (TPair t₁ t₂)) → Result (Σ SCtx (λ C' → CEnv C' × Val t₁))
+    f (C' , σ' , VPair v₁ v₂) = return (C' , σ' , v₁)
+runMon ϱ σ (snd e) =
+  runMon ϱ σ e >>= f
+  where
+    f : ∀ {t₁} {t₂} → Σ SCtx (λ C' → CEnv C' × Val (TPair t₁ t₂)) → Result (Σ SCtx (λ C' → CEnv C' × Val t₂))
+    f (C' , σ' , VPair v₁ v₂) = return (C' , σ' , v₂)
 runMon {t}{A}{C} ϱ σ (new s) =
-  return (s ∷ C ,  CToken s ∷ σ , VPair (VChan (s ∷ C) true here) (VChan (s ∷ C) false (simp-∈ here)))
-runMon ϱ σ (send e₁ e₂) =
-  runMon ϱ σ e₁ >>= λ v₁ →
-  runMon ϱ (proj₁ (proj₂ v₁)) e₂ >>= λ v₂ →
-  let vchan = getChanInfo (proj₂ (proj₂ v₁)) in
-  OutputTo (proj₁ vchan) (proj₁ (proj₂ vchan)) (proj₂ (proj₂ vchan)) (proj₂ (proj₂ v₂))
-  λ v₁' p → let vchan' = getChanInfo v₁' in return (proj₁ vchan' , {!!} , {!v₁'!})
-runMon ϱ σ (recv e) = {!!}
-runMon ϱ σ (close e) = {!!}
-runMon ϱ σ (wait e) = {!!}
+  return ( s ∷ C
+         , CToken s ∷ σ
+         , VPair (VChan (s ∷ C) true here) (VChan (s ∷ C) false (simp-∈ here)))
+runMon ϱ σ₀ (send ec ev) =
+  runMon ϱ σ₀ ec >>= λ {(C₁ , σ₁ , (VChan Cc bc pc)) →
+  runMon ϱ σ₁ ev >>= λ {(C₂ , σ₂ , vv) →
+  -- need to lift Cc to C₁ and then to C₂
+  OutputTo C₂ bc {!pc!} vv σ₂
+  λ c₁ p σ' → let vchan' = getChanInfo c₁ in return (proj₁ vchan' , σ' , {!c₁!})
+  }}
+runMon {TPair (TChan s) t} ϱ σ (recv e) =
+  runMon ϱ σ e >>= λ {( C₁ , σ₁ , VChan {SRecv .t .s} Cc bc pc) →
+  InputFrom Cc bc pc {!!} λ vc vt σ' → return {!!}  }
+runMon ϱ σ (close e) =
+  runMon ϱ σ e >>= {!!}
+runMon ϱ σ (wait e) =
+  runMon ϱ σ e >>= {!!}
 
 {-
   OutputTo  : (t : Ty) → ℕ → Val t → Result A → Result A
@@ -212,13 +238,40 @@ data Channels {a} (A : Set a) : Set a where
   Ch : (C : SCtx) → (σ : CEnv C) → (Σ SCtx λ C' → (CEnv C' × A)) → Channels A
 
 data IChannels {a} : SCtx → SCtx → Set a → Set a where
-  Ch : (C : SCtx) → (C' : SCtx) → (A : Set a) → ((σ : CEnv C) → (CEnv C' × A)) → IChannels C C' A
+  Ch : (C C' : SCtx) → (A : Set a) → ((σ : CEnv C) → (CEnv C' × A)) → IChannels C C' A
+  Ou : (C C' : SCtx) → (A : Set a) → ℕ → (⊤ → IChannels C C' A) → IChannels C C' A
 
 ireturn : ∀ {a} {A : Set a} {C} → A → IChannels C C A
 ireturn {a} {A} {C} x = Ch C C A (λ σ → σ , x)
 
+ibindaux : ∀ {a} → (C C' C'' : SCtx) (B : Set a) → IChannels C' C'' B → CEnv C' → CEnv C'' × B
+ibindaux C C' C'' B (Ch .C' .C'' .B x) = x
+ibindaux C C' C'' B (Ou .C' .C'' .B x x₁) = {!!}
+
 ibind : ∀ {a} {A B : Set a} {C C' C''} → IChannels C C' A → (A → IChannels C' C'' B) → IChannels C C'' B
-ibind {B = B} {C'' = C''} (Ch C C' A x) f = Ch C C'' B λ σ → 
-  let r = x σ
+ibind {B = B} {C'' = C''} (Ch C C' A st) f =
+  Ch C C'' B λ σ → 
+  let r = st σ
       q = f (proj₂ r)
-  in {!!}
+      final = ibindaux C C' C'' B q (proj₁ r)
+  in final
+ibind {B = B} {C'' = C''} (Ou C C' A n cont) f =
+  Ou C C'' B n (λ _ → ibind (cont tt) f)
+
+-- output : ℕ → (⊤ → Mon C C' A) → Mon C C' A
+-- input  : (ℕ → Mon C C' A) → Mon C C' A
+-- return : A → Mon C C A
+-- bind   : Mon C C' A → (A → Mon C' C'' B) → Mon C C'' B
+
+-- output n cont `bind` f = output n (cont [] f) -- Kleisli composition
+-- input  g      `bind` f = input    (g [] f)
+-- return x      `bind` f = f x
+
+
+--- maybe need this
+--- S → Mon O S A
+--- Mon I O S A = Return S A | Output O S (⊤ → S → Mon I O S A) | Input S (I → S → Mon I O S A)
+--- Return S A `bind` f = f A S
+--- Output O S g `bind` f = Output O S (λ x → g x `comp` f)
+--- Input S g `bind` f = Input S (λ x → g x `comp` f)
+
