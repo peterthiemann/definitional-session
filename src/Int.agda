@@ -40,6 +40,7 @@ dual-involution (SExternal s₁ s₂) rewrite dual-involution s₁ | dual-involu
 dual-involution SEnd! = refl
 dual-involution SEnd? = refl
 
+-- contexts for types and session types
 Ctx = List Ty
 SCtx = List STy
 
@@ -105,22 +106,111 @@ xdual : Bool → STy → STy
 xdual false s = dual s
 xdual true s = s
 
+-- relation on session types
+-- session type evolves to another by a single action
+data _≼S_ : STy → STy → Set where
+  ≼-send : ∀ {s t} → SSend t s ≼S s
+  ≼-recv : ∀ {s t} → SRecv t s ≼S s
+  ≼-ilft : ∀ {s₁ s₂} → SInternal s₁ s₂ ≼S s₁
+  ≼-irgt : ∀ {s₁ s₂} → SInternal s₁ s₂ ≼S s₂
+  ≼-elft : ∀ {s₁ s₂} → SExternal s₁ s₂ ≼S s₁
+  ≼-ergt : ∀ {s₁ s₂} → SExternal s₁ s₂ ≼S s₂
+
+xdual-consistent : ∀ {s₁ s₂} → (b : Bool) → s₁ ≼S s₂ → xdual b s₁ ≼S xdual b s₂
+xdual-consistent false ≼-send = ≼-recv
+xdual-consistent true ≼-send = ≼-send
+xdual-consistent false ≼-recv = ≼-send
+xdual-consistent true ≼-recv = ≼-recv
+xdual-consistent false ≼-ilft = ≼-elft
+xdual-consistent true ≼-ilft = ≼-ilft
+xdual-consistent false ≼-irgt = ≼-ergt
+xdual-consistent true ≼-irgt = ≼-irgt
+xdual-consistent false ≼-elft = ≼-ilft
+xdual-consistent true ≼-elft = ≼-elft
+xdual-consistent false ≼-ergt = ≼-irgt
+xdual-consistent true ≼-ergt = ≼-ergt
+
+data _≼T_ : Ty → Ty → Set where
+  ≼-unit : TUnit ≼T TUnit
+  ≼-int  : TInt ≼T TInt
+  ≼-pair : ∀ {t₁ t₂ t₁' t₂'} → t₁ ≼T t₁' → t₂ ≼T t₂' → TPair t₁ t₂ ≼T TPair t₁' t₂'
+  ≼-fun  : ∀ {t₁ t₂ t₁' t₂'} → t₁ ≼T t₁' → t₂ ≼T t₂' → TFun t₁ t₂ ≼T TFun t₁' t₂' -- makes sense?
+  ≼-chan : ∀ {s s'} → s ≼S s' → TChan s ≼T TChan s'
+
+-- session type evolves to another by a sequence of actions
+data _≼S*_ : STy → STy → Set where
+  ≼-refl : ∀ {s} → s ≼S* s
+  ≼-trans : ∀ {s₁ s₂ s₃} → s₁ ≼S s₂ → s₂ ≼S* s₃ → s₁ ≼S* s₃
+
+-- a relation on session type contexts
+-- meaning that one session type context evolves into another
+data _↝₀_ : SCtx → SCtx → Set where
+  ↝Nil : [] ↝₀ []
+  ↝Cons : ∀ {s₁ s₂ C₁ C₂} → s₁ ≼S* s₂ → C₁ ↝₀ C₂ → (s₁ ∷ C₁) ↝₀ (s₂ ∷ C₂)
+
+data _↝₀[_,_]_ : {s₁ s₂ : STy} → (C : SCtx) → s₁ ∈ C → s₁ ≼S s₂ → SCtx → Set where
+  ↝-here  : ∀ {s₁ s₂ C} 
+          → (ps12 : s₁ ≼S s₂)
+          → (s₁ ∷ C) ↝₀[ here , ps12 ] (s₂ ∷ C)
+  ↝-there : ∀ {s s₁ s₂ C₁ C₂} {p : s₁ ∈ C₁}
+          → (ps12 : s₁ ≼S s₂)
+          → C₁ ↝₀[ p , ps12 ] C₂ 
+          → (s ∷ C₁) ↝₀[ there p , ps12 ] (s ∷ C₂)
+
+context-step : ∀ {C₁ C₂ : SCtx} {s₁ s₂} → {ps12 : s₁ ≼S s₂} → {p : s₁ ∈ C₁} → C₁ ↝₀[ p , ps12 ] C₂ → s₂ ∈ C₂
+context-step (↝-here ps12) = here
+context-step (↝-there ps12 c12) = there (context-step c12)
+
+data _↝[_]_ : {s : STy} → (C : SCtx) → s ∈ C → SCtx → Set where
+  ↝Keep : ∀ {C₁ C₂ p} → C₁ ↝₀ C₂ → C₁ ↝[ p ] C₂
+  ↝Extend : ∀ {C₁ C₂ s p} → C₁ ↝[ p ] C₂ → C₁ ↝[ p ] (s ∷ C₂)
+
+data _↝_ : (C : SCtx) → SCtx → Set where
+  ↝Keep : ∀ {C₁ C₂} → C₁ ↝₀ C₂ → C₁ ↝ C₂
+  ↝Extend : ∀ {C₁ C₂ s} → C₁ ↝ C₂ → C₁ ↝ (s ∷ C₂)
+
 
 -- type indexed values
-data Val : Ty → Set where
-  VUnit : Val TUnit
-  VInt : ℕ → Val TInt
-  VPair : ∀ { t₁ t₂ } → Val t₁ → Val t₂ → Val (TPair t₁ t₂)
-  VChan : ∀ { s } → (C : SCtx) → (b : Bool) → (p : (xdual b s) ∈ C) → Val (TChan s)
+data Val (C : SCtx) : Ty → Set where
+  VUnit : Val C TUnit
+  VInt : ℕ → Val C TInt
+  VPair : ∀ { t₁ t₂ } → Val C t₁ → Val C t₂ → Val C (TPair t₁ t₂)
+  VChan : ∀ { s } → (b : Bool) → (p : (xdual b s) ∈ C) → Val C (TChan s)
 
-getChanInfo : ∀ {s} → Val (TChan s) → Σ SCtx (λ C → Σ Bool (λ b → (xdual b s) ∈ C))
-getChanInfo (VChan C b p) = C , b , p
+liftValue : ∀ {C₁ C₂ t₁ t₂ s₁ s₂ p} {ps12 : s₁ ≼S s₂} → (t12 : t₁ ≼T t₂) → C₁ ↝₀[ p , ps12 ] C₂ → Val C₁ t₁ → Val C₂ t₂
+liftValue ≼-unit c12 VUnit = VUnit
+liftValue ≼-int c12 (VInt x) = VInt x
+liftValue (≼-pair t12 t13) c12 (VPair v1 v2) = VPair (liftValue t12 c12 v1) (liftValue t13 c12 v2)
+liftValue (≼-chan x) (↝-here ps12) (VChan b here) = VChan b {!!}
+liftValue (≼-chan x) (↝-here ps12) (VChan b (there p)) = VChan b {!!}
+liftValue (≼-chan x) (↝-there ps12 c12) (VChan b p) = {!!}
+
+liftChan₀ : ∀ {s₁ s₂ C₁ C₂} → (b : Bool) → (p : s₁ ≼S s₂) → (cc : C₁ ↝₀ C₂) → xdual b s₁ ∈ C₁ → xdual b s₂ ∈ C₂
+liftChan₀ b p ↝Nil ()
+liftChan₀ b p (↝Cons x cc) here = {!!}
+liftChan₀ b p (↝Cons x cc) (there ch) = {!!}
+
+liftChan : ∀ {s₁ s₂ C₁ C₂} → (b : Bool) → (p : s₁ ≼S s₂) → (cc : C₁ ↝ C₂) → xdual b s₁ ∈ C₁ → xdual b s₂ ∈ C₂
+liftChan b p (↝Keep x) ch = liftChan₀ b p x ch
+liftChan b p (↝Extend cc) ch with liftChan b p cc ch
+... | ch₂ = there ch₂
+
+-- lift a value to an extended context
+liftVal : ∀ {C₁ C₂ t₁ t₂} → Val C₁ t₁ → C₁ ↝ C₂ → t₁ ≼T t₂ → Val C₂ t₂
+liftVal VUnit cc ≼-unit = VUnit
+liftVal (VInt x) cc ≼-int = VInt x
+liftVal (VPair v v₁) cc (≼-pair sub sub₁) with liftVal v cc sub | liftVal v₁ cc sub₁
+... | lf1 | lf2 = VPair lf1 lf2
+liftVal (VChan b p) cc (≼-chan x) = VChan b {!!}
+
+getChanInfo : ∀ {C s} → Val C (TChan s) → Σ SCtx (λ C → Σ Bool (λ b → (xdual b s) ∈ C))
+getChanInfo {C} (VChan b p) = C , b , p
 
 
 -- typed environments
-data Env : Ctx → Set where
-  []  : Env []
-  _∷_ : ∀ { t A } (x : Val t) (xs : Env A) → Env (t ∷ A)
+data Env (C : SCtx) : Ctx → Set where
+  []  : Env C []
+  _∷_ : ∀ { t A } (x : Val C t) (xs : Env C A) → Env C (t ∷ A)
 
 data Chan : STy → Set where
   CToken : (s : STy) → Chan s
@@ -130,19 +220,20 @@ data CEnv : SCtx → Set where
   [] : CEnv []
   _∷_ : ∀ { s C } (x : Chan s) (xs : CEnv C) → CEnv (s ∷ C)
 
-lookup : ∀ {A t} → t ∈ A → Env A → Val t
+lookup : ∀ {t A C} → t ∈ A → Env C A → Val C t
 lookup here (t ∷ ϱ) = t
 lookup (there x) (x₁ ∷ ϱ) = lookup x ϱ
 
 simp-∈ : {s : STy} {C : SCtx} → s ∈ C → dual (dual s) ∈ C
 simp-∈ {s} s∈C rewrite dual-involution s = s∈C
 
+{-
 -- interpreter for expressions
 runExpr : ∀ {t} → {A : Ctx} {C : SCtx} 
-  → Env A → CEnv C → Expr A t → Σ SCtx λ C' → (CEnv C' × Val t)
+  → Env C A → CEnv C → Expr A t → Σ SCtx λ C' → (CEnv C' × Val C' t)
 runExpr ϱ σ (var x) = _ , σ , lookup x ϱ
 runExpr ϱ σ (pair e₁ e₂) with runExpr ϱ σ e₁
-runExpr ϱ σ (pair e₁ e₂) | C₁ , σ₁ , v₁ with runExpr ϱ σ₁ e₂
+runExpr ϱ σ (pair e₁ e₂) | C₁ , σ₁ , v₁ with runExpr {C = C₁} ϱ σ₁ e₂
 runExpr ϱ σ (pair e₁ e₂) | C₁ , σ₁ , v₁ | C₂ , σ₂ , v₂ = C₂ , σ₂ , VPair v₁ v₂
 runExpr ϱ σ (fst e) with runExpr ϱ σ e
 runExpr ϱ σ (fst e) | C₁ , σ₁ , VPair v₁ v₂ = C₁ , σ₁ , v₁
@@ -275,3 +366,4 @@ ibind {B = B} {C'' = C''} (Ou C C' A n cont) f =
 --- Output O S g `bind` f = Output O S (λ x → g x `comp` f)
 --- Input S g `bind` f = Input S (λ x → g x `comp` f)
 
+-}
