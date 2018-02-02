@@ -1,11 +1,13 @@
 module Int where
 
 open import Category.Monad.Indexed
-open import Data.Product
-open import Data.List
+open import Data.Product hiding (map)
+open import Data.List hiding (map)
 open import Data.Nat
 open import Data.Bool
+open import Data.Sum
 open import Data.Unit
+open import Function
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
@@ -41,15 +43,26 @@ dual-involution SEnd! = refl
 dual-involution SEnd? = refl
 
 -- contexts for types and session types
-Ctx = List Ty
+TCtx = List Ty
 SCtx = List STy
 
 data _∈_ {a : Set} (x : a) : List a → Set where
   here  : ∀ { xs } → x ∈ (x ∷ xs)
   there : ∀ { x₀ xs } → x ∈ xs → x ∈ (x₀ ∷ xs)
 
+-- effects (?)
+data Eff (C : SCtx) : Set where
+  Send : ∀ {t s} → SSend t s ∈ C → Eff C
+  Recv : ∀ {t s} → SRecv t s ∈ C → Eff C
+
+-- a list of effect only makes sense if the effects can be put in sequence
+data Effect : SCtx → SCtx → Set where
+  send-here : ∀ { t s C } → Effect (SSend t s ∷ C) (s ∷ C)
+  recv-here : ∀ { t s C } → Effect (SRecv t s ∷ C) (s ∷ C)
+  not-here  : ∀ { s C₁ C₂ } → Effect C₁ C₂ → Effect (s ∷ C₁) (s ∷ C₂)
+
 -- syntax of typed expressions
-data Expr (A : Ctx) : Ty → Set where
+data Expr (A : TCtx) : Ty → Set where
   var : ∀ { t } → t ∈ A → Expr A t
   pair : ∀ { t₁ t₂ } → Expr A t₁ → Expr A t₂ → Expr A (TPair t₁ t₂)
   fst :  ∀ { t₁ t₂ } → Expr A (TPair t₁ t₂) → Expr A t₁
@@ -84,14 +97,39 @@ lemma-unr-lin UInt ()
 lemma-unr-lin (UPair unr unr₁) (LPair1 lin) = lemma-unr-lin unr lin
 lemma-unr-lin (UPair unr unr₁) (LPair2 lin) = lemma-unr-lin unr₁ lin
 
+data Split : TCtx → TCtx → TCtx → Set where
+  [] : Split [] [] []
+  unr : ∀ {t A A₁ A₂} → Unr t → Split A A₁ A₂ → Split (t ∷ A) (t ∷ A₁) (t ∷ A₂)
+  linleft : ∀ {t A A₁ A₂} → Lin t → Split A A₁ A₂ → Split (t ∷ A) (t ∷ A₁) A₂
+  linrght : ∀ {t A A₁ A₂} → Lin t → Split A A₁ A₂ → Split (t ∷ A) A₁ (t ∷ A₂)
+
+splitting-preserves : ∀ {t A A₁ A₂} → Split A A₁ A₂ → t ∈ A → t ∈ A₁ ⊎ t ∈ A₂
+splitting-preserves (unr x split) here = inj₁ here
+splitting-preserves (unr x split) (there t∈A) = map there there (splitting-preserves split t∈A)
+splitting-preserves (linleft x split) here = inj₁ here
+splitting-preserves (linleft x split) (there t∈A) = map there id (splitting-preserves split t∈A)
+splitting-preserves (linrght x split) here = inj₂ here
+splitting-preserves (linrght x split) (there t∈A) = map id there (splitting-preserves split t∈A)
+
+data Expr1 (A : TCtx) : Ty → Set where
+  var  : ∀ { t } → t ∈ A → Expr1 A t
+  pair : ∀ { t₁ t₂ A₁ A₂ } → Split A A₁ A₂ → Expr1 A₁ t₁ → Expr1 A₂ t₂ → Expr1 A (TPair t₁ t₂)
+  fst :  ∀ { t₁ t₂ } → Expr1 A (TPair t₁ t₂) → Expr1 A t₁
+  snd :  ∀ { t₁ t₂ } → Expr1 A (TPair t₁ t₂) → Expr1 A t₂
+  new : (s : STy) → Expr1 A (TPair (TChan s) (TChan (dual s)))
+  send : ∀ { t s A₁ A₂} → Split A A₁ A₂ → Expr1 A₁ (TChan (SSend t s)) → Expr1 A₂ t → Expr1 A (TChan s)
+  recv : ∀ { t s } → Expr1 A (TChan (SRecv t s)) → Expr1 A (TPair (TChan s) t)
+  close : Expr1 A (TChan SEnd!) → Expr1 A TUnit
+  wait  : Expr1 A (TChan SEnd?) → Expr1 A TUnit
+
 -- threaded lookup
-data Lookup (t : Ty) : (A : Ctx) → (B : Ctx) → Set where
+data Lookup (t : Ty) : (A : TCtx) → (B : TCtx) → Set where
   herelin : ∀ {A} → Lin t → Lookup t (t ∷ A) (TUnit ∷ A)
   hereunr : ∀ {A} → Unr t → Lookup t (t ∷ A) (t ∷ A)
   there   : ∀ {A B x} → Lookup t A B → Lookup t (x ∷ A) (x ∷ B)
 
 -- syntax of type threaded expressions
-data Expr' : Ctx → Ctx → Ty → Set where
+data Expr' : TCtx → TCtx → Ty → Set where
   var : ∀ { t A B } → Lookup t A B → Expr' A B t
   pair : ∀ { t₁ t₂ A B C } → Expr' A B t₁ → Expr' B C t₂ → Expr' A C (TPair t₁ t₂)
   fst : ∀ { t₁ t₂ A B } → Expr' A B (TPair t₁ t₂) → Expr' A B t₁
@@ -177,6 +215,14 @@ data Val (C : SCtx) : Ty → Set where
   VPair : ∀ { t₁ t₂ } → Val C t₁ → Val C t₂ → Val C (TPair t₁ t₂)
   VChan : ∀ { s } → (b : Bool) → (p : (xdual b s) ∈ C) → Val C (TChan s)
 
+data Unaffected {C : SCtx} {s : STy} : (t : Ty) → (x : Val C t) → (p : s ∈ C) → Set where
+  U-unit : ∀ {p t} → Unaffected TUnit VUnit p
+
+-- how about we can only lift values that are unaffected?
+liftValueUnaffected :  ∀ {C₁ C₂ t s₁ s₂ p} {ps12 : s₁ ≼S s₂} 
+                    → C₁ ↝₀[ p , ps12 ] C₂ → (x : Val C₁ t) → Unaffected t x p → Val C₂ t
+liftValueUnaffected c12 xv uaxp = {!!}
+
 liftValue : ∀ {C₁ C₂ t₁ t₂ s₁ s₂ p} {ps12 : s₁ ≼S s₂} → (t12 : t₁ ≼T t₂) → C₁ ↝₀[ p , ps12 ] C₂ → Val C₁ t₁ → Val C₂ t₂
 liftValue ≼-unit c12 VUnit = VUnit
 liftValue ≼-int c12 (VInt x) = VInt x
@@ -208,7 +254,7 @@ getChanInfo {C} (VChan b p) = C , b , p
 
 
 -- typed environments
-data Env (C : SCtx) : Ctx → Set where
+data Env (C : SCtx) : TCtx → Set where
   []  : Env C []
   _∷_ : ∀ { t A } (x : Val C t) (xs : Env C A) → Env C (t ∷ A)
 
@@ -229,7 +275,7 @@ simp-∈ {s} s∈C rewrite dual-involution s = s∈C
 
 {-
 -- interpreter for expressions
-runExpr : ∀ {t} → {A : Ctx} {C : SCtx} 
+runExpr : ∀ {t} → {A : TCtx} {C : SCtx} 
   → Env C A → CEnv C → Expr A t → Σ SCtx λ C' → (CEnv C' × Val C' t)
 runExpr ϱ σ (var x) = _ , σ , lookup x ϱ
 runExpr ϱ σ (pair e₁ e₂) with runExpr ϱ σ e₁
@@ -283,7 +329,7 @@ OutputTo C t n v σ r   >>= frb = OutputTo C t n v σ (λ z p a → r z p a >>= 
 
 
 -- monadic interpreter for expressions
-runMon : ∀ {t} → {A : Ctx} {C : SCtx} 
+runMon : ∀ {t} → {A : TCtx} {C : SCtx} 
   → Env A → CEnv C → Expr A t → Result (Σ SCtx λ C' → (CEnv C' × Val t))
 runMon ϱ σ (var x) = return (_ , σ , lookup x ϱ)
 runMon {TPair t₁ t₂} ϱ σ (pair e₁ e₂) = 
