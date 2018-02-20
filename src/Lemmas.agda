@@ -100,3 +100,19 @@ inv-inj (suc k) = {!!}
 finnk=>finkn : ∀ {n : ℕ} (k : ℕ) → Fin (n + k) → Fin (k + n)
 finnk=>finkn {n} k j rewrite n+k=k+n n k = j
 
+≤-refl : ∀ n → n ≤ n
+≤-refl zero = z≤n
+≤-refl (suc n) = s≤s (≤-refl n)
+
+≤-trans : ∀ {k l m} → k ≤ l → l ≤ m → k ≤ m
+≤-trans z≤n z≤n = z≤n
+≤-trans z≤n (s≤s l≤m) = z≤n
+≤-trans (s≤s k≤l) (s≤s l≤m) = s≤s (≤-trans k≤l l≤m)
+
+n<=k+n : ∀ {n} k → n ≤ k + n
+n<=k+n zero = ≤-refl _
+n<=k+n {zero} (suc k) = z≤n
+n<=k+n {suc n} (suc k) rewrite m+sn=sm+n k n = let p = n<=k+n {n} (suc k) in s≤s p
+
+injectk+ : ∀ {n} k → Fin n → Fin (k + n)
+injectk+ {n} k j = inject≤ j (n<=k+n {n} k)
