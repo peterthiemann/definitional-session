@@ -251,26 +251,39 @@ runProc e = actOn [] Data.List.[ runExpr e [] ]
 -- keep track which ends of a channel a process is allowed to possess
 SCtx' = List (STy × PosNeg)
 
-data Valid : PosNeg → Bool → Set where
-  ValidPosTrue  : Valid POS true
-  ValidNegFalse : Valid NEG false
+-- SSplit G G₁ G₂
+-- split G into G₁ and G₂
+data SSplit : SCtx' → SCtx' → SCtx' → Set where
+  ss-[]    : SSplit [] [] []
+  ss-left  : ∀ {G G₁ G₂ sp} → SSplit G G₁ G₂ → SSplit (sp ∷ G) (sp ∷ G₁) G₂
+  ss-right : ∀ {G G₁ G₂ sp} → SSplit G G₁ G₂ → SSplit (sp ∷ G) G₁ (sp ∷ G₂)
+  ss-pn    : ∀ {G G₁ G₂ s} → SSplit G G₁ G₂ → SSplit ((s , POSNEG) ∷ G) ((s , POS) ∷ G₁) ((s , NEG) ∷ G₂)
+  ss-np    : ∀ {G G₁ G₂ s} → SSplit G G₁ G₂ → SSplit ((s , POSNEG) ∷ G) ((s , NEG) ∷ G₁) ((s , POS) ∷ G₂)
+
+-- ValidEnd indicates that the channel end available in the typing environment matches the one indicated by the channel value
+data ValidEnd : PosNeg → Bool → Set where
+  ValidPosTrue  : ValidEnd POS true
+  ValidNegFalse : ValidEnd NEG false
   -- obsolete after introducing splitting
-  -- ValidPosNegTrue : Valid POSNEG true
-  -- ValidPosNegFalse : Valid POSNEG false
+  -- ValidPosNegTrue : ValidEnd POSNEG true
+  -- ValidPosNegFalse : ValidEnd POSNEG false
 
 -- revision for channel values
 data Val' (G : SCtx') : Ty → Set where
   VUnit : Val' G TUnit
   VInt  : ℕ → Val' G TInt
-  VPair : ∀ { t₁ t₂ } → Val' G t₁ → Val' G t₂ → Val' G (TPair t₁ t₂)
-  VChan : ∀ {s pn} → (s , pn) ∈ G → (b : Bool) → Valid pn b → Val' G (TChan (xdual b s))
-
--- * TODO: split G G₁ G₂
+  VPair : ∀ { G₁ G₂ t₁ t₂ } (ss : SSplit G G₁ G₂) (v₁ : Val' G₁ t₁) (v₂ : Val' G₂ t₂) → Val' G (TPair t₁ t₂)
+  VChan : ∀ {s pn} → (s , pn) ∈ G → (b : Bool) → ValidEnd pn b → Val' G (TChan (xdual b s))
 
 -- type indexed environments
-data VEnv' (G : SCtx') : TCtx → Set where
-  []  : VEnv' G []
-  _∷_ : ∀ { t Φ } (x : Val' G t) (xs : VEnv' G Φ) → VEnv' G (t ∷ Φ)
+data VEnv' : SCtx' → TCtx → Set where
+  []  : VEnv' [] []
+  _∷_ : ∀ { t Φ G G₁ G₂ }
+      (ss : SSplit G G₁ G₂) (x : Val' G₁ t) (xs : VEnv' G₂ Φ) → VEnv' G (t ∷ Φ)
+
+split-env' : ∀ {Φ Φ₁ Φ₂ G₁ G₂ G₃}
+            → Split Φ Φ₁ Φ₂ → VEnv' G₁ Φ → VEnv' G₂ Φ₁ × VEnv' G₃ Φ₂
+split-env' = {!!}
 
 -- outcomes of a computation
 -- the actual computation with result A is a map:
@@ -282,81 +295,179 @@ data VEnv' (G : SCtx') : TCtx → Set where
 
 -- bind : M G G' A → (A → M G' G'' B) → M G G'' B
 
+-- fork  : M G [] TUnit
+--       → M G [] TUnit
+-- new s : M [] [s] (TPair (TChan s) (TChan (dual s)))
+-- recv  : TChan 'here' (SRecv t s) 
+--       → M  [SRecv t s] [s] t
+-- send  : TChan 'here' (SSend t s) → t
+--       → M [SSend t s] [s] TUnit
+-- close : TChan 'here' SEnd!
+--       → M [SEnd!] [] TUnit
+-- wait  : TChan 'here' SEnd?
+--       → M [SEnd?] [] TUnit
+
+-- Fork  : split G G₁ G₂
+--       → M G₁ [] TUnit
+--       → M G G₂ TUnit
 -- new s : M G (s ∷ G) (TPair (TChan s) (TChan (dual s)))
--- recv  : TChan (p : SRecv t s ∈ G) (SRecv t s) 
---       → M G (update G p s) t
--- send  : TChan (p : SSend t s ∈ G) (SSend t s) → t
---       → M G (update G p s) TUnit
+-- recv  : TChan p (SRecv t s) 
+--       → M G@p=[SRecv t s] G@p=[s] t
+-- send  : TChan p (SSend t s) → t
+--       → M G@p=[SSend t s] G@p=[s] TUnit
+-- close : TChan p SEnd!
+--       → M G@p=[SEnd!] (delete G p) TUnit
+-- wait  : TChan p SEnd?
+--       → M G@p=[SEnd?] (delete G p) TUnit
+
+-- M Φ G1 G2 A = (Φ) → (G1) → VEnv G1 Φ → Result G2 A
+
+-- bind : split Φ Φ₁ Φ₂ → M Φ₁ G G2 A -> (A -> M Φ₂ G2 G3 B) → M Φ G G3 B
+-- bind sp m f =
+--   λ Φ G ϱ → 
+--   let (ϱ₁ , ϱ₂) = split-env sp ϱ in
+--   case (m Φ₁ G ϱ₁) of
+--     Return a   → f a Φ₂ G ϱ₂ -- G1=G2
+--     Pause  m   → Pause (bind m f)
+--     New s  c   → New s (λ z → bind sp (c z) f)
+--     Recv x c   → Recv x (λ z → bind sp (c z) f)
+--     Send x y c → Send x y (λ z → bind sp (c z) f)
+
+Mon : (Φ : TCtx) (G₁ : SCtx) (G₂ : SCtx) (A : Set) → Set
+Mon Φ G₁ G₂ A = {!!}
+
+data Result0 (G : SCtx') (A : Set) : Set where
+  Return : (x : A) → Result0 G A
+
+{-
+bind0 : ∀ {Φ Φ₁ Φ₂ G₁ G2 G3 A B} 
+      → Split Φ Φ₁ Φ₂
+      → Mon Φ₁ G₁ G2 A 
+      → (A -> Mon Φ₂ G2 G3 B)
+      → Mon Φ G₁ G3 B
+-}
+bind0 : ∀ {Φ Φ₁ Φ₂ G₁ G₂ G₃ A B} 
+      → Split Φ Φ₁ Φ₂
+      → (VEnv' G₁ Φ₁ → Result0 G₂ A)
+      → (A -> VEnv' G₂ Φ₂ → Result0 G₃ B)
+      → (VEnv' G₁ Φ → Result0 G₃ B)
+bind0 sp ma fab ϱ with split-env' sp ϱ
+... | pp = {!!}
 
 
+-- data Result' (G : SCtx') : (G' : SCtx') (A : Set) → Set where
+--   Return    : ∀ {A}
+--             → (x : A) 
+--             → Result' G G A
+--   -- to resume a computation later on, I can continue with the same G
+--   Pause     : ∀ {A G'}
+--             → (cont   : ⊤ → Result' G G' A)
+--             → Result' G G' A
+-- --   Fork      : (forked : Σ TCtx λ Φ → VEnv' G Φ × ((G' : SCtx) → VEnv' G' Φ → Result' G' (Val' G' TUnit)))
+-- --             → (cont   : (G' : SCtx) → Result' G' A)
+-- --             → Result' G A
+--   -- to create a new channel
+--   New       : ∀ {A}
+--             → (s : STy)
+--             → let G' = ( s , POSNEG ) ∷ G in
+--               (cont : Σ TCtx λ Φ → VEnv' G Φ
+--                     × (VEnv' G' Φ → (cp : Val' G' (TPair (TChan s) (TChan (dual s)))) → Result' G G' A))
+--             → Result' G G' A
+-- --   RecvFrom : {t : Ty} {s : STy} 
+-- --             → (ch :  Val' G (TChan (SRecv t s)))
+-- --             → (cont : (ch' : Val' G (TChan s))
+-- --                     → Val' G t
+-- --                     → Result' G A)
+-- --             → Result' G A
+-- --   SendTo  : {t : Ty} {s : STy}
+-- --             → (ch :  Val' G (TChan (SSend t s)))
+-- --             → Val' G t
+-- --             → (cont : Val' G (TChan s) → Result' G A)
+-- --             → Result' G A
+-- --   Close     : (ch : Val' G (TChan SEnd!))
+-- --             → (cont : Val' G TUnit → Result' G A)
+-- --             → Result' G A
+-- --   Wait      : (ch : Val' G (TChan SEnd?))
+-- --             → (cont : Val' G TUnit → Result' G A)
+-- --             → Result' G A
 
-data Result' (G : SCtx') : (G' : SCtx') (A : Set) → Set where
-  Return    : ∀ {A}
-            → (x : A) 
-            → Result' G G A
-  -- to resume a computation later on, I can continue with the same G
-  Pause     : ∀ {A G'}
-            → (cont   : ⊤ → Result' G G' A)
-            → Result' G G' A
---   Fork      : (forked : Σ TCtx λ Φ → VEnv' G Φ × ((G' : SCtx) → VEnv' G' Φ → Result' G' (Val' G' TUnit)))
---             → (cont   : (G' : SCtx) → Result' G' A)
---             → Result' G A
-  -- to create a new channel
-  New       : ∀ {A}
-            → (s : STy)
-            → let G' = ( s , POSNEG ) ∷ G in
-              (cont : Σ TCtx λ Φ → VEnv' G Φ
-                    × (VEnv' G' Φ → (cp : Val' G' (TPair (TChan s) (TChan (dual s)))) → Result' G G' A))
-            → Result' G G' A
---   RecvFrom : {t : Ty} {s : STy} 
---             → (ch :  Val' G (TChan (SRecv t s)))
---             → (cont : (ch' : Val' G (TChan s))
---                     → Val' G t
---                     → Result' G A)
---             → Result' G A
---   SendTo  : {t : Ty} {s : STy}
---             → (ch :  Val' G (TChan (SSend t s)))
---             → Val' G t
---             → (cont : Val' G (TChan s) → Result' G A)
---             → Result' G A
---   Close     : (ch : Val' G (TChan SEnd!))
---             → (cont : Val' G TUnit → Result' G A)
---             → Result' G A
---   Wait      : (ch : Val' G (TChan SEnd?))
---             → (cont : Val' G TUnit → Result' G A)
---             → Result' G A
+-- -- munit : ∀ {A Φ}
+-- --       → A
+-- --       → ((G : SCtx) → VEnv' G Φ → Result' G A)
+-- -- munit = {!!}
 
--- munit : ∀ {A Φ}
---       → A
---       → ((G : SCtx) → VEnv' G Φ → Result' G A)
--- munit = {!!}
+-- -- mbind : ∀ {A B Φ}
+-- --      → ((G : SCtx) → VEnv' G Φ → Result' G A)
+-- --      → (A → ((G' : SCtx) → VEnv' G' Φ → Result' G' B))
+-- --      → ((G'' : SCtx) → VEnv' G'' Φ → Result' G'' B)
+-- -- mbind = {!!}
 
--- mbind : ∀ {A B Φ}
---      → ((G : SCtx) → VEnv' G Φ → Result' G A)
---      → (A → ((G' : SCtx) → VEnv' G' Φ → Result' G' B))
---      → ((G'' : SCtx) → VEnv' G'' Φ → Result' G'' B)
--- mbind = {!!}
+-- -- runExpr' : ∀ {t Φ} → Expr Φ t → (G : SCtx) → VEnv' G Φ → Result' G (Val' G t)
+-- -- runExpr' (var x) G ϱ = {!!}
+-- -- runExpr' (nat x) G ϱ = {!!}
+-- -- runExpr' (letx sp e e₁) G ϱ = {!!}
+-- -- runExpr' (pair sp e e₁) G ϱ = {!!}
+-- -- runExpr' (letpair sp e e₁) G ϱ = {!!}
+-- -- runExpr' (fork e) G ϱ = Fork (_ , ϱ , runExpr' e) (λ G' → Return VUnit)
+-- -- runExpr' (new s) G ϱ = New s (_ , ϱ , λ G' ϱ' v' → Return {!!})
+-- -- runExpr' (send sp e e₁) G ϱ = {!!}
+-- -- runExpr' (recv e) G ϱ = {!!}
+-- -- runExpr' (close e) G ϱ = {!!}
+-- -- runExpr' (wait e) G ϱ = {!!}
 
--- runExpr' : ∀ {t Φ} → Expr Φ t → (G : SCtx) → VEnv' G Φ → Result' G (Val' G t)
--- runExpr' (var x) G ϱ = {!!}
--- runExpr' (nat x) G ϱ = {!!}
--- runExpr' (letx sp e e₁) G ϱ = {!!}
--- runExpr' (pair sp e e₁) G ϱ = {!!}
--- runExpr' (letpair sp e e₁) G ϱ = {!!}
--- runExpr' (fork e) G ϱ = Fork (_ , ϱ , runExpr' e) (λ G' → Return VUnit)
--- runExpr' (new s) G ϱ = New s (_ , ϱ , λ G' ϱ' v' → Return {!!})
--- runExpr' (send sp e e₁) G ϱ = {!!}
--- runExpr' (recv e) G ϱ = {!!}
--- runExpr' (close e) G ϱ = {!!}
--- runExpr' (wait e) G ϱ = {!!}
+-- -- -- experiemnt #3
+-- -- data Result'' (A : Set) : Set where
+-- --   Return : (x : A) (Φ : TCtx) (G : SCtx) (ϱ : VEnv' G Φ)
+-- --          → Result'' A
 
--- -- experiemnt #3
--- data Result'' (A : Set) : Set where
---   Return : (x : A) (Φ : TCtx) (G : SCtx) (ϱ : VEnv' G Φ)
---          → Result'' A
+-- -- -- experiment #4
+-- data Val'' {n} : Vec STy n → Ty → Set where
+--   VChan : ∀ {G} → (i : Fin n) → Val'' G (TChan (lookup i (reverse G)))
 
--- -- experiment #4
-data Val'' {n} : Vec STy n → Ty → Set where
-  VChan : ∀ {G} → (i : Fin n) → Val'' G (TChan (lookup i (reverse G)))
+-- -- seems to run into problems involving heterogeneous equality...
 
--- seems to run into problems involving heterogeneous equality...
+
+data Eff : Set where
+  ENone : Eff
+  ESeq  : Eff → Eff → Eff
+  ENew  : Eff
+  EFork : Eff → Eff
+  ESend : Ty → Eff
+  ERecv : Ty → Eff
+
+-- syntax of typed and effected expressions
+data Expr' (Φ : TCtx) : Ty → Eff → Set where
+  var : ∀ { t } → t ∈ Φ → Expr' Φ t ENone
+  nat : ℕ → Expr' Φ TInt ENone
+  letx : ∀ { t₁ t₂ Φ₁ Φ₂ ε₁ ε₂ } 
+       → (sp : Split Φ Φ₁ Φ₂)
+       → (e₁ : Expr' Φ₁ t₁ ε₁) 
+       → (e₂ : Expr' (t₁ ∷ Φ₂) t₂ ε₂) 
+       → Expr' Φ t₂ (ESeq ε₁ ε₂)
+  pair : ∀ { t₁ t₂ Φ₁ Φ₂ ε₁ ε₂ } 
+       → (sp : Split Φ Φ₁ Φ₂)
+       → (e₁ : Expr' Φ₁ t₁ ε₁)
+       → (e₂ : Expr' Φ₂ t₂ ε₂)
+       → Expr' Φ (TPair t₁ t₂) (ESeq ε₁ ε₂)
+  letpair : ∀ { t t₁ t₂ Φ₁ Φ₂ ε₁ ε₂ }
+       → (sp : Split Φ Φ₁ Φ₂)
+       → (e₁ : Expr' Φ₁ (TPair t₁ t₂) ε₁)
+       → (e₂ : Expr' (t₁ ∷ t₂ ∷ Φ₂) t ε₁) 
+       → Expr' Φ t (ESeq ε₁ ε₂)
+  fork : ∀ {ε}
+       → Expr' Φ TUnit ε
+       → Expr' Φ TUnit (EFork ε)
+  new : (s : STy)
+      → Expr' Φ (TPair (TChan s) (TChan (dual s))) ENew
+  send : ∀ { t s Φ₁ Φ₂ ε₁ ε₂ }
+       → (sp : Split Φ Φ₁ Φ₂)
+       → (e₁ : Expr' Φ₁ (TChan (SSend t s)) ε₁)
+       → (e₂ : Expr' Φ₂ t ε₂)
+       → Expr' Φ (TChan s) (ESeq ε₁ (ESeq ε₂ (ESend t))) 
+       -- want to know on which channel I'm sending: needs to be part of the type
+  recv : ∀ { t s ε }
+       → Expr' Φ (TChan (SRecv t s)) ε
+       → Expr' Φ (TPair (TChan s) t) (ESeq ε (ERecv t))
+  -- close : Expr Φ (TChan SEnd!) → Expr Φ TUnit
+  -- wait  : Expr Φ (TChan SEnd?) → Expr Φ TUnit
+
