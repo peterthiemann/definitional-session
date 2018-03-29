@@ -101,6 +101,33 @@ data SSplit : SCtx → SCtx → SCtx → Set where
           → SSplit (just (s , POSNEG) ∷ G) (just (s , NEG) ∷ G₁) (just (s , POS) ∷ G₂)
 
 -- tedious but easy to prove
+ssplit-compose : (G G₁ G₂ G₃ G₄ : SCtx) 
+  → (ss : SSplit G G₁ G₂)
+  → (ss₁ : SSplit G₁ G₃ G₄)
+  → Σ SCtx λ Gi → SSplit G G₃ Gi × SSplit Gi G₄ G₂
+ssplit-compose .[] .[] .[] .[] .[] ss-[] ss-[] =  [] , (ss-[] , ss-[])
+ssplit-compose (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-both ss) (ss-both ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+ssplit-compose (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-both ss) (ss-both ss₁) | Gi , ss₁₃ , ss₂₄ = nothing ∷ Gi , ss-both ss₁₃ , ss-both ss₂₄
+ssplit-compose (just _ ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just _ ∷ G₃) (nothing ∷ G₄) (ss-left ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = nothing ∷ Gi , ss-left ss₁₃ , ss-both ss₂₄
+ssplit-compose (just x ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (just _ ∷ G₄) (ss-left ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just x ∷ Gi , ss-right ss₁₃ , ss-left ss₂₄
+ssplit-compose (just (x , POSNEG) ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just (_ , POS) ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-left ss) (ss-posneg ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ =  just (x , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-left ss₂₄
+ssplit-compose (just (s , POSNEG) ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just (_ , NEG) ∷ G₃) (just (_ , POS) ∷ G₄) (ss-left ss) (ss-negpos ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just (s , POS) ∷ Gi , ss-negpos ss₁₃ , ss-left ss₂₄
+ssplit-compose (just x ∷ G) (nothing ∷ G₁) (just _ ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-right ss) (ss-both ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just x ∷ Gi , ss-right ss₁₃ , ss-right ss₂₄
+ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (just (_ , POS) ∷ G₃) (nothing ∷ G₄) (ss-posneg ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just (s , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-right ss₂₄
+ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (nothing ∷ G₃) (just (_ , POS) ∷ G₄) (ss-posneg ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just (s , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-posneg ss₂₄
+ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (just (_ , NEG) ∷ G₃) (nothing ∷ G₄) (ss-negpos ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just (s , POS) ∷ Gi , ss-negpos ss₁₃ , ss-right ss₂₄
+ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (nothing ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-negpos ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
+... | Gi , ss₁₃ , ss₂₄ = just (s , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-negpos ss₂₄
+
+
 ssplit-compose3 : (G G₁ G₂ G₃ G₄ : SCtx)
   → SSplit G G₁ G₂
   → SSplit G₂ G₃ G₄
@@ -346,7 +373,10 @@ run{G = G}{G₁ = G₁}{G₂ = G₂} tsp ssp (var x) ϱ κ with access ϱ x
 ... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina = apply-cont ssp κ v
 run tsp ssp (nat unr-φ i) ϱ κ =
   apply-cont ssp κ (VInt i (unrestricted-venv unr-φ ϱ))
-run tsp ssp (letbind sp e e₁) ϱ κ = {!!}
+run{φ}{φ₁}{φ₂} tsp ssp (letbind sp e₁ e₂) ϱ κ with split-env sp ϱ | split-rotate tsp sp
+... | (G₁ , G₂) , ssp-G1G2 , ϱ₁ , ϱ₂ | φ' , tsp-φ' , φ'-tsp with ssplit-compose _ _ _ _ _ ssp ssp-G1G2
+... | Gi , ssp-3i , ssp-42 =
+  run tsp-φ' ssp-3i e₁ ϱ₁ (cont {!!} (λ {G'} {Gx} ss-G'GxG vx ϱ' → run {!!} {!!} e₂ (vcons ss-G'GxG vx {!ϱ'!}) κ))
 run tsp ssp (pair sp x₁ x₂) ϱ κ = {!!}
 run tsp ssp (letpair sp p e) ϱ κ = {!!}
 run{φ}{G = G} tsp ssp (fork e) ϱ κ =
