@@ -123,6 +123,25 @@ split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₁ x = φ' , unr-φ' , linleft x sp'
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₂ y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
 
+-- reorganize splits
+split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
+  → Split φ φ₁ φ₂ → Split φ₁ φ₁₁ φ₁₂ → Σ TCtx λ φ' → Split φ φ₁₁ φ' × Split φ' φ₁₂ φ₂
+split-rotate [] [] = [] , [] , []
+split-rotate (unr x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , unr x₁ φ'-sp
+split-rotate (unr x sp12) (linleft x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x sp-φ' , linrght x₁ φ'-sp
+split-rotate (unr x sp12) (linrght x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x₁ sp-φ' , unr x φ'-sp
+split-rotate (linleft x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , linleft x φ'-sp
+split-rotate (linleft x sp12) (linleft x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = φ' , linleft x₁ sp-φ' , φ'-sp
+split-rotate (linleft x sp12) (linrght x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x₁ sp-φ' , linleft x₁ φ'-sp
+split-rotate (linrght x sp12) sp1112 with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x sp-φ' , linrght x φ'-sp
+
 -- extract from type context where all other entries are unrestricted
 data _∈_ (x : Ty) : TCtx → Set where
   here  : ∀ { xs } → All Unr xs → x ∈ (x ∷ xs)
