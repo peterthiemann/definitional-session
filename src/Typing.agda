@@ -113,14 +113,14 @@ TCtx = List Ty
 data Split : TCtx → TCtx → TCtx → Set where
   [] : Split [] [] []
   unr : ∀ {t Φ Φ₁ Φ₂} → Unr t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) (t ∷ Φ₂)
-  linleft : ∀ {t Φ Φ₁ Φ₂} → Lin t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) Φ₂
-  linrght : ∀ {t Φ Φ₁ Φ₂} → Lin t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ (t ∷ Φ₂)
+  left : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) Φ₂
+  rght : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ (t ∷ Φ₂)
 
 -- split the unrestricted part from a typing context
 split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ φ'
 split-refl-left [] = [] , [] , []
 split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
-split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₁ x = φ' , unr-φ' , linleft x sp'
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₁ x = φ' , unr-φ' , left sp'
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₂ y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
 
 -- reorganize splits
@@ -129,18 +129,18 @@ split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
 split-rotate [] [] = [] , [] , []
 split-rotate (unr x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , unr x₁ φ'-sp
-split-rotate (unr x sp12) (linleft x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x sp-φ' , linrght x₁ φ'-sp
-split-rotate (unr x sp12) (linrght x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x₁ sp-φ' , unr x φ'-sp
-split-rotate (linleft x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , linleft x φ'-sp
-split-rotate (linleft x sp12) (linleft x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = φ' , linleft x₁ sp-φ' , φ'-sp
-split-rotate (linleft x sp12) (linrght x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x₁ sp-φ' , linleft x₁ φ'-sp
-split-rotate (linrght x sp12) sp1112 with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , linrght x sp-φ' , linrght x φ'-sp
+split-rotate (unr x sp12) (left sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x sp-φ' , rght φ'-sp
+split-rotate (unr x sp12) (rght sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , unr x φ'-sp
+split-rotate (left sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , left φ'-sp
+split-rotate (left sp12) (left sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = φ' , left sp-φ' , φ'-sp
+split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , left φ'-sp
+split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
 
 -- extract from type context where all other entries are unrestricted
 data _∈_ (x : Ty) : TCtx → Set where
