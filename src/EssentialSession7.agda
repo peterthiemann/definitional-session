@@ -276,10 +276,20 @@ data ValidChannelRef : (G : SCtx) (b : Bool) (s : STy) → Set where
 
 -- a value indexed by a *relevant* session context, which is "used up" by the value
 data Val (G : SCtx) : Ty → Set where
-  VUnit : Inactive G → Val G TUnit
-  VInt  : (i : ℕ) → Inactive G → Val G TInt
-  VPair : ∀ {t₁ t₂ G₁ G₂} → SSplit G G₁ G₂ → (v₁ : Val G₁ t₁) → (v₂ : Val G₂ t₂) → Val G (TPair t₁ t₂)
-  VChan : ∀ {s} → (b : Bool) → (vcr : ValidChannelRef G b s) → Val G (TChan s)
+  VUnit : (inaG : Inactive G)
+    → Val G TUnit
+  VInt  : (i : ℕ)
+    → (inaG : Inactive G)
+    → Val G TInt
+  VPair : ∀ {t₁ t₂ G₁ G₂}
+    → (ss-GG₁G₂ : SSplit G G₁ G₂)
+    → (v₁ : Val G₁ t₁)
+    → (v₂ : Val G₂ t₂)
+    → Val G (TPair t₁ t₂)
+  VChan : ∀ {s}
+    → (b : Bool)
+    → (vcr : ValidChannelRef G b s)
+    → Val G (TChan s)
 
 unrestricted-val :  ∀ {t G} → Unr t → Val G t → Inactive G
 unrestricted-val UUnit (VUnit x) = x
@@ -387,13 +397,15 @@ mutual
       → (s : STy)
       → (κ : Cont (TPair (TChan s) (TChan (dual s))) G φ)
       → Command G
-    Close : ∀ {φ}
-      → (v : Val G (TChan SEnd!))
-      → (κ : Cont TUnit G φ)
+    Close : ∀ {φ G₁ G₂}
+      → (ss : SSplit G G₁ G₂)
+      → (v : Val G₁ (TChan SEnd!))
+      → (κ : Cont TUnit G₂ φ)
       → Command G
-    Wait  : ∀ {φ}
-      → (v : Val G (TChan SEnd?))
-      → (κ : Cont TUnit G φ)
+    Wait  : ∀ {φ G₁ G₂}
+      → (ss : SSplit G G₁ G₂)
+      → (v : Val G₁ (TChan SEnd?))
+      → (κ : Cont TUnit G₂ φ)
       → Command G
 
 -- 
@@ -430,14 +442,23 @@ run{φ}{φ₁}{φ₂} f tsp ssp (letbind{.φ₁}{φ₁₁}{φ₁₂}{t₁}{t₂}
 ... | Gi , ssp-3i , ssp-42 =
   run f tsp-φ' ssp-3i e₁ ϱ₁
   (bind φ'-tsp ssp-42 e₂ ϱ₂ κ₂)
-run f tsp ssp (pair sp x₁ x₂) ϱ κ = {!!}
-run f tsp ssp (letpair sp p e) ϱ κ = {!!}
+run f tsp ssp (pair sp x₁ x₂) ϱ κ with split-env sp ϱ
+... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ x₁ | access ϱ₂ x₂
+... | Gv₁ , Gr₁ , ina-Gr₁ , ss-v1r1 , v₁ | Gv₂ , Gr₂ , ina-Gr₂ , ss-v2r2 , v₂ rewrite inactive-right-ssplit ss-v1r1 ina-Gr₁ | inactive-right-ssplit ss-v2r2 ina-Gr₂ =
+  apply-cont f ssp κ (VPair ss-G1G1'G2' v₁ v₂)
+run f tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
+... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ p
+run f tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gv₁ , Gr₁ , ina-Gr₁ , ss-v1r1 , VPair ss-GG₁G₂ v₁ v₂ = run f (left (left {!!})) ssp e (vcons {!!} v₁ (vcons {!!} v₂ ϱ₂)) κ 
 run{φ}{G = G} f tsp ssp (fork e) ϱ κ =
   Fork ssp (cont ϱ (fork-cont f e)) κ
 run f tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina rewrite inactive-left-ssplit ssp ina = New s κ
-run f tsp ssp (close ch) ϱ κ = {!!}
-run f tsp ssp (wait ch) ϱ κ = {!!}
+run f tsp ssp (close ch) ϱ κ with access ϱ ch
+... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
+run f tsp ssp (close ch) ϱ κ | Gch , Gϱ , ina , ssp12 , vch | vch' | refl = Close ssp vch' κ
+run f tsp ssp (wait ch) ϱ κ with access ϱ ch
+... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
+... | vch' | refl = Wait ssp vch' κ
 
 
 apply-cont f ssp (cont ϱ c) v = c ssp v ϱ
@@ -456,11 +477,29 @@ fork-cont {φ}{ G'}{ Gx}{ G} (More f) e ssp_x_ϱ vx ϱ' with unrestricted-val UU
 fork-cont {φ}{ G'}{ Gx}{ G} Empty e ssp_x_ϱ vx ϱ' =
   Stopped {!!} {!!} {!!}
 
+-- lifting through a trivial extension
+
+lift-val : ∀ {G t} → Val G t → Val (nothing ∷ G) t
+lift-val (VUnit x) = VUnit (::-inactive _ x)
+lift-val (VInt i x) = VInt i (::-inactive _ x)
+lift-val (VPair x v v₁) = VPair (ss-both x) (lift-val v) (lift-val v₁)
+lift-val (VChan b vcr) = VChan b (there vcr)
+
+lift-venv : ∀ {G φ} → VEnv G φ → VEnv (nothing ∷ G) φ
+lift-venv (vnil ina) = vnil (::-inactive _ ina)
+lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
+
 lift-cont : ∀ {G t φ} → Cont t G φ → Cont t (nothing ∷ G) φ
-lift-cont κ = {!!}
+lift-cont (cont ϱ c) = cont (lift-venv ϱ) {!!}
+lift-cont (bind ts ss e₂ ϱ₂ κ) = bind ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
-lift-command cmd = {!!}
+lift-command (Fork ss κ₁ κ₂) = Fork (ss-both ss) (lift-cont κ₁) (lift-cont κ₂)
+lift-command (Stopped ss v κ) = Stopped (ss-both ss) (lift-val v) (lift-cont κ)
+lift-command (Halt x) = Halt (::-inactive _ x)
+lift-command (New s κ) = New s (lift-cont κ)
+lift-command (Close ss v κ) = Close (ss-both ss) (lift-val v) (lift-cont κ)
+lift-command (Wait ss v κ) = Wait (ss-both ss) (lift-val v) (lift-cont κ)
 
 -- threads
 data ThreadPool (G : SCtx) : Set where
@@ -490,6 +529,6 @@ schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
     (tcons (ss-left ss)
            (apply-cont f (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi)) (VChan false (here-neg ina-Gi))))
            (lift-threadpool tp))
-schedule (More f) G (tcons ss (Close v κ) tp) = {!!}
-schedule (More f) G (tcons ss (Wait v κ) tp) = {!!}
+schedule (More f) G (tcons ss (Close ss-vκ v κ) tp) = {!!}
+schedule (More f) G (tcons ss (Wait ss-vκ v κ) tp) = {!!}
 schedule Empty G (tcons _ _ _) = {!!}
