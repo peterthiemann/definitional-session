@@ -448,7 +448,9 @@ run f tsp ssp (pair sp x₁ x₂) ϱ κ with split-env sp ϱ
   apply-cont f ssp κ (VPair ss-G1G1'G2' v₁ v₂)
 run f tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ p
-run f tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gv₁ , Gr₁ , ina-Gr₁ , ss-v1r1 , VPair ss-GG₁G₂ v₁ v₂ = run f (left (left {!!})) ssp e (vcons {!!} v₁ (vcons {!!} v₂ ϱ₂)) κ 
+run f tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gvp , Gr , ina-Gr , ss-vpr , VPair ss-GG₁G₂ v₁ v₂ with split-rotate tsp sp
+... | φ' , ts-φφ1φ' , ts-φ'φ3φ4 rewrite inactive-right-ssplit ss-vpr ina-Gr with ssplit-compose _ _ _ _ _ ss-G1G1'G2' ss-GG₁G₂
+... | Gi , ss-G3G1Gi , ss-G1G2G2' = run f (left (left ts-φ'φ3φ4)) ssp e (vcons ss-G3G1Gi v₁ (vcons ss-G1G2G2' v₂ ϱ₂)) κ 
 run{φ}{G = G} f tsp ssp (fork e) ϱ κ =
   Fork ssp (cont ϱ (fork-cont f e)) κ
 run f tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
