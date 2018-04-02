@@ -14,9 +14,9 @@ open import Function
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
--- open import Lemmas
-
 open import Typing
+
+open import Global
 
 -- expressions
 data Expr : (φ : TCtx) → Ty → Set where
@@ -25,7 +25,7 @@ data Expr : (φ : TCtx) → Ty → Set where
       → Expr φ t
 
   nat : ∀ {φ}
-      → All Unr φ
+      → (unr-φ : All Unr φ)
       → (i : ℕ)
       → Expr φ TInt
 
@@ -52,7 +52,7 @@ data Expr : (φ : TCtx) → Ty → Set where
     → Expr φ TUnit
 
   new : ∀ {φ}
-      → All Unr φ
+      → (unr-φ : All Unr φ)
       → (s : STy)
       → Expr φ (TPair (TChan s) (TChan (dual s)))
 {-
@@ -75,203 +75,29 @@ data Expr : (φ : TCtx) → Ty → Set where
       → (ch : TChan SEnd? ∈ φ)
       → Expr φ TUnit
 
-
--- global session context
-SCtx = List (Maybe (STy × PosNeg))
-
--- SSplit G G₁ G₂
--- split G into G₁ and G₂
--- length and position preserving
-data SSplit : SCtx → SCtx → SCtx → Set where
-  ss-[]    : SSplit [] [] []
-  ss-both  : ∀ {  G G₁ G₂ }
-           → SSplit G G₁ G₂
-           → SSplit (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂)
-  ss-left  : ∀ { spn G G₁ G₂ }
-           → SSplit G G₁ G₂
-           → SSplit (just spn ∷ G) (just spn ∷ G₁) (nothing ∷ G₂)
-  ss-right : ∀ { spn G G₁ G₂ }
-           → SSplit G G₁ G₂
-           → SSplit (just spn ∷ G) (nothing ∷ G₁) (just spn ∷ G₂)
-  ss-posneg : ∀ {  s G G₁ G₂ }
-          → SSplit G G₁ G₂
-          → SSplit (just (s , POSNEG) ∷ G) (just (s , POS) ∷ G₁) (just (s , NEG) ∷ G₂)
-  ss-negpos : ∀ {  s G G₁ G₂ }
-          → SSplit G G₁ G₂
-          → SSplit (just (s , POSNEG) ∷ G) (just (s , NEG) ∷ G₁) (just (s , POS) ∷ G₂)
-
--- tedious but easy to prove
-ssplit-compose : (G G₁ G₂ G₃ G₄ : SCtx) 
-  → (ss : SSplit G G₁ G₂)
-  → (ss₁ : SSplit G₁ G₃ G₄)
-  → Σ SCtx λ Gi → SSplit G G₃ Gi × SSplit Gi G₄ G₂
-ssplit-compose .[] .[] .[] .[] .[] ss-[] ss-[] =  [] , (ss-[] , ss-[])
-ssplit-compose (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-both ss) (ss-both ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-ssplit-compose (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-both ss) (ss-both ss₁) | Gi , ss₁₃ , ss₂₄ = nothing ∷ Gi , ss-both ss₁₃ , ss-both ss₂₄
-ssplit-compose (just _ ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just _ ∷ G₃) (nothing ∷ G₄) (ss-left ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = nothing ∷ Gi , ss-left ss₁₃ , ss-both ss₂₄
-ssplit-compose (just x ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (just _ ∷ G₄) (ss-left ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just x ∷ Gi , ss-right ss₁₃ , ss-left ss₂₄
-ssplit-compose (just (x , POSNEG) ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just (_ , POS) ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-left ss) (ss-posneg ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ =  just (x , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-left ss₂₄
-ssplit-compose (just (s , POSNEG) ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (just (_ , NEG) ∷ G₃) (just (_ , POS) ∷ G₄) (ss-left ss) (ss-negpos ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just (s , POS) ∷ Gi , ss-negpos ss₁₃ , ss-left ss₂₄
-ssplit-compose (just x ∷ G) (nothing ∷ G₁) (just _ ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-right ss) (ss-both ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just x ∷ Gi , ss-right ss₁₃ , ss-right ss₂₄
-ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (just (_ , POS) ∷ G₃) (nothing ∷ G₄) (ss-posneg ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just (s , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-right ss₂₄
-ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (nothing ∷ G₃) (just (_ , POS) ∷ G₄) (ss-posneg ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just (s , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-posneg ss₂₄
-ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (just (_ , NEG) ∷ G₃) (nothing ∷ G₄) (ss-negpos ss) (ss-left ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just (s , POS) ∷ Gi , ss-negpos ss₁₃ , ss-right ss₂₄
-ssplit-compose (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (nothing ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-negpos ss) (ss-right ss₁) with ssplit-compose G G₁ G₂ G₃ G₄ ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just (s , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-negpos ss₂₄
-
-
-ssplit-compose3 : (G G₁ G₂ G₃ G₄ : SCtx)
-  → SSplit G G₁ G₂
-  → SSplit G₂ G₃ G₄
-  → Σ SCtx λ Gi → (SSplit G Gi G₄ × SSplit Gi G₁ G₃)
-ssplit-compose3 .[] .[] .[] .[] .[] ss-[] ss-[] = [] , ss-[] , ss-[]
-ssplit-compose3 (nothing ∷ G) (nothing ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-both ss12) (ss-both ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = nothing ∷ Gi , ss-both ssi4 , ss-both ssi13
-ssplit-compose3 (just x ∷ G) (just _ ∷ G₁) (nothing ∷ G₂) (nothing ∷ G₃) (nothing ∷ G₄) (ss-left ss12) (ss-both ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just x ∷ Gi , ss-left ssi4 , ss-left ssi13
-ssplit-compose3 (just x ∷ G) (nothing ∷ G₁) (just _ ∷ G₂) (just _ ∷ G₃) (nothing ∷ G₄) (ss-right ss12) (ss-left ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just x ∷ Gi , ss-left ssi4 , ss-right ssi13
-ssplit-compose3 (just x ∷ G) (nothing ∷ G₁) (just _ ∷ G₂) (nothing ∷ G₃) (just _ ∷ G₄) (ss-right ss12) (ss-right ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = nothing ∷ Gi , ss-right ssi4 , ss-both ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (nothing ∷ G₁) (just (_ , POSNEG) ∷ G₂) (just (_ , POS) ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-right ss12) (ss-posneg ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , POS) ∷ Gi , ss-posneg ssi4 , ss-right ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (nothing ∷ G₁) (just (_ , POSNEG) ∷ G₂) (just (_ , NEG) ∷ G₃) (just (_ , POS) ∷ G₄) (ss-right ss12) (ss-negpos ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , NEG) ∷ Gi , ss-negpos ssi4 , ss-right ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (just (_ , NEG) ∷ G₃) (nothing ∷ G₄) (ss-posneg ss12) (ss-left ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , POSNEG) ∷ Gi , ss-left ssi4 , ss-posneg ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (just (_ , POS) ∷ G₁) (just (_ , NEG) ∷ G₂) (nothing ∷ G₃) (just (_ , NEG) ∷ G₄) (ss-posneg ss12) (ss-right ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , POS) ∷ Gi , ss-posneg ssi4 , ss-left ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (just (_ , POS) ∷ G₃) (nothing ∷ G₄) (ss-negpos ss12) (ss-left ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , POSNEG) ∷ Gi , ss-left ssi4 , ss-negpos ssi13
-ssplit-compose3 (just (s , POSNEG) ∷ G) (just (_ , NEG) ∷ G₁) (just (_ , POS) ∷ G₂) (nothing ∷ G₃) (just (_ , POS) ∷ G₄) (ss-negpos ss12) (ss-right ss234) with ssplit-compose3 G G₁ G₂ G₃ G₄ ss12 ss234
-... | Gi , ssi4 , ssi13 = just (s , NEG) ∷ Gi , ss-negpos ssi4 , ss-left ssi13
-
-
-ssplit-compose4
-  : (G G₁ G₂ G₂₁ G₂₂ : SCtx) 
-  → (ss : SSplit G G₁ G₂)
-  → (ss₁ : SSplit G₂ G₂₁ G₂₂)
-  → Σ SCtx λ Gi → SSplit G G₂₁ Gi × SSplit Gi G₁ G₂₂
-ssplit-compose4 G G₁ G₂ G₃ G₄ ss ss₁ = {!!}
-
--- a session context is inactive if all its entries are void
-data Inactive : (G : SCtx) → Set where
-  []-inactive : Inactive []
-  ::-inactive :  (G : SCtx) → Inactive G → Inactive (nothing ∷ G)
-
-inactive-ssplit-trivial : ∀ {G} → Inactive G → SSplit G G G
-inactive-ssplit-trivial []-inactive = ss-[]
-inactive-ssplit-trivial (::-inactive G ina) = ss-both (inactive-ssplit-trivial ina)
-
-ssplit-inactive : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₁ → Inactive G₂ → Inactive G
-ssplit-inactive ss-[] []-inactive []-inactive = []-inactive
-ssplit-inactive (ss-both ssp) (::-inactive G ina1) (::-inactive G₁ ina2) = ::-inactive _ (ssplit-inactive ssp ina1 ina2)
-ssplit-inactive (ss-left ssp) () ina2
-ssplit-inactive (ss-right ssp) ina1 ()
-ssplit-inactive (ss-posneg ssp) () ina2
-ssplit-inactive (ss-negpos ssp) ina1 ()
-
-ssplit-inactive-left : ∀ {G G'} → SSplit G G G' → Inactive G'
-ssplit-inactive-left ss-[] = []-inactive
-ssplit-inactive-left (ss-both ssp) = ::-inactive _ (ssplit-inactive-left ssp)
-ssplit-inactive-left (ss-left ssp) = ::-inactive _ (ssplit-inactive-left ssp)
-
-ssplit-refl-left : (G : SCtx) → Σ SCtx λ G' → SSplit G G G'
-ssplit-refl-left [] = [] , ss-[]
-ssplit-refl-left (just x ∷ G) with ssplit-refl-left G
-... | G' , ssp' = nothing ∷ G' , ss-left ssp'
-ssplit-refl-left (nothing ∷ G) with ssplit-refl-left G
-... | G' , ssp' = nothing ∷ G' , ss-both ssp'
-
-ssplit-inactive-right : ∀ {G G'} → SSplit G G' G → Inactive G'
-ssplit-inactive-right ss-[] = []-inactive
-ssplit-inactive-right (ss-both ss) = ::-inactive _ (ssplit-inactive-right ss)
-ssplit-inactive-right (ss-right ss) = ::-inactive _ (ssplit-inactive-right ss)
-
-ssplit-refl-right : (G : SCtx) → Σ SCtx λ G' → SSplit G G' G
-ssplit-refl-right [] = [] , ss-[]
-ssplit-refl-right (just x ∷ G) with ssplit-refl-right G
-... | G' , ssp' = nothing ∷ G' , ss-right ssp'
-ssplit-refl-right (nothing ∷ G) with ssplit-refl-right G
-... | G' , ssp' = nothing ∷ G' , ss-both ssp'
-
-inactive-left-ssplit : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₁ → G ≡ G₂
-inactive-left-ssplit ss-[] []-inactive = refl
-inactive-left-ssplit (ss-both ss) (::-inactive G inG₁) =
-  cong (_∷_ nothing) (inactive-left-ssplit ss inG₁)
-inactive-left-ssplit (ss-right ss) (::-inactive G inG₁) =
-  cong (_∷_ (just _)) (inactive-left-ssplit ss inG₁)
-
-inactive-right-ssplit : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₂ → G ≡ G₁
-inactive-right-ssplit ss-[] []-inactive = refl
-inactive-right-ssplit (ss-both ssp) (::-inactive G ina) =
-  cong (_∷_ nothing) (inactive-right-ssplit ssp ina)
-inactive-right-ssplit (ss-left ssp) (::-inactive G ina) =
-  cong (_∷_ (just _)) (inactive-right-ssplit ssp ina)
-
-inactive-right-ssplit-sym : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₂ → G₁ ≡ G
-inactive-right-ssplit-sym ssp ina = sym (inactive-right-ssplit ssp ina)
-
-
-ssplit-function : ∀ {G G' G₁ G₂} → SSplit G G₁ G₂ → SSplit G' G₁ G₂ → G ≡ G'
-ssplit-function ss-[] ss-[] = refl
-ssplit-function (ss-both ssp-GG1G2) (ss-both ssp-G'G1G2) =
-  cong (_∷_ nothing) (ssplit-function ssp-GG1G2 ssp-G'G1G2)
-ssplit-function (ss-left ssp-GG1G2) (ss-left ssp-G'G1G2) =
-  cong (_∷_ (just _)) (ssplit-function ssp-GG1G2 ssp-G'G1G2)
-ssplit-function (ss-right ssp-GG1G2) (ss-right ssp-G'G1G2) =
-  cong (_∷_ (just _)) (ssplit-function ssp-GG1G2 ssp-G'G1G2)
-ssplit-function (ss-posneg ssp-GG1G2) (ss-posneg ssp-G'G1G2) =
-  cong (_∷_ (just _)) (ssplit-function ssp-GG1G2 ssp-G'G1G2)
-ssplit-function (ss-negpos ssp-GG1G2) (ss-negpos ssp-G'G1G2) =
-  cong (_∷_ (just _)) (ssplit-function ssp-GG1G2 ssp-G'G1G2)
-
-ssplit-function1 : ∀ {G G₁ G₁' G₂} → SSplit G G₁ G₂ → SSplit G G₁' G₂ → G₁ ≡ G₁'
-ssplit-function1 ss-[] ss-[] = refl
-ssplit-function1 (ss-both ssp-GG1G2) (ss-both ssp-GG1'G2) =
-  cong (_∷_ nothing) (ssplit-function1 ssp-GG1G2 ssp-GG1'G2)
-ssplit-function1 (ss-left ssp-GG1G2) (ss-left ssp-GG1'G2) =
-  cong (_∷_ (just _)) (ssplit-function1 ssp-GG1G2 ssp-GG1'G2)
-ssplit-function1 (ss-right ssp-GG1G2) (ss-right ssp-GG1'G2) =
-  cong (_∷_ nothing) (ssplit-function1 ssp-GG1G2 ssp-GG1'G2)
-ssplit-function1 (ss-posneg ssp-GG1G2) (ss-posneg ssp-GG1'G2) =
-  cong (_∷_ (just _)) (ssplit-function1 ssp-GG1G2 ssp-GG1'G2)
-ssplit-function1 (ss-negpos ssp-GG1G2) (ss-negpos ssp-GG1'G2) =
-  cong (_∷_ (just _)) (ssplit-function1 ssp-GG1G2 ssp-GG1'G2)
-
-ssplit-function2 : ∀ {G G₁ G₂ G₂'} → SSplit G G₁ G₂ → SSplit G G₁ G₂' → G₂ ≡ G₂'
-ssplit-function2 ss-[] ss-[] = refl
-ssplit-function2 (ss-both ssp-GG1G2) (ss-both ssp-GG1G2') =
-  cong (_∷_ nothing) (ssplit-function2 ssp-GG1G2 ssp-GG1G2')
-ssplit-function2 (ss-left ssp-GG1G2) (ss-left ssp-GG1G2') =
-  cong (_∷_ nothing) (ssplit-function2 ssp-GG1G2 ssp-GG1G2')
-ssplit-function2 (ss-right ssp-GG1G2) (ss-right ssp-GG1G2') =
-  cong (_∷_ (just _)) (ssplit-function2 ssp-GG1G2 ssp-GG1G2')
-ssplit-function2 (ss-posneg ssp-GG1G2) (ss-posneg ssp-GG1G2') =
-  cong (_∷_ (just _)) (ssplit-function2 ssp-GG1G2 ssp-GG1G2')
-ssplit-function2 (ss-negpos ssp-GG1G2) (ss-negpos ssp-GG1G2') =
-  cong (_∷_ (just _)) (ssplit-function2 ssp-GG1G2 ssp-GG1G2')
+lift-expr : ∀ {φ t tᵤ} → Unr tᵤ → Expr φ t → Expr (tᵤ ∷ φ) t
+lift-expr unrtu (var x) = var (there unrtu x)
+lift-expr unrtu (nat unr-φ i) = nat (unrtu ∷ unr-φ) i
+lift-expr unrtu (letbind sp e e₁) = letbind (left sp) (lift-expr unrtu e) e₁
+lift-expr unrtu (pair sp x₁ x₂) = pair (rght sp) x₁ (there unrtu x₂)
+lift-expr unrtu (letpair sp p e) = letpair (left sp) (there unrtu p) e
+lift-expr unrtu (fork e) = lift-expr unrtu e
+lift-expr unrtu (new unr-φ s) = new (unrtu ∷ unr-φ) s
+lift-expr unrtu (close ch) = close (there unrtu ch)
+lift-expr unrtu (wait ch) = wait (there unrtu ch)
 
 -- the main part of a channel endpoint value is a valid channel reference
 -- the boolean determines whether it's the front end or the back end of the channel
 -- enforces that the session context has only one channel
 data ValidChannelRef : (G : SCtx) (b : Bool) (s : STy) → Set where
   here-pos : ∀ {s} {G : SCtx}
-    → Inactive G
+    → (ina-G : Inactive G)
     → ValidChannelRef (just (s , POS) ∷ G) true s
   here-neg : ∀ {s} {G : SCtx}
-    → Inactive G
+    → (ina-G : Inactive G)
     → ValidChannelRef (just (s , NEG) ∷ G) false (dual s)
   there : ∀ {b s} {G : SCtx}
-    → ValidChannelRef G b s
+    → (vcr : ValidChannelRef G b s)
     → ValidChannelRef (nothing ∷ G) b s
 
 -- a value indexed by a *relevant* session context, which is "used up" by the value
@@ -352,19 +178,25 @@ data Fuel : Set where
   More  : Fuel → Fuel
 
 mutual
-  data Cont (t : Ty) (G : SCtx) (φ : TCtx) : Set where
+  data Cont (G : SCtx) (φ : TCtx) (t : Ty) : Set where
+    halt-cont :
+      (un-φ : All Unr φ)
+      → (un-t : Unr t)
+      → (ϱ : VEnv G φ)
+      → Cont G φ t
+  {-
     cont : 
       (ϱ : VEnv G φ)
       → (c : ∀ {G' Gx} → SSplit G' Gx G → Val Gx t → VEnv G φ →  Command G')
-      → Cont t G φ
-
+      → Cont G φ t
+  -}
     bind : ∀ { φ₁ φ₂ G₁ G₂ t₂}
       → (ts : Split φ φ₁ φ₂)
       → (ss : SSplit G G₁ G₂)
       → (e₂ : Expr (t ∷ φ₁) t₂)
       → (ϱ₂ : VEnv G₁ φ₁)
-      → (κ₂ : Cont t₂ G₂ φ₂)
-      → Cont t G φ
+      → (κ₂ : Cont G₂ φ₂ t₂)
+      → Cont G φ t
 
   data Command (G : SCtx) : Set where
 {-
@@ -374,20 +206,20 @@ mutual
       → (v : Val G₁ t₁)
       → (e₂ : Expr (t₁ ∷ φ₁) t₂)
       → (ϱ₂ : VEnv G₂ φ₁)
-      → (κ₂ : Cont t₂ G₂ φ₂)
+      → (κ₂ : Cont G₂ φ₂ t₂)
       → Command G
 -}
 
     Fork : ∀ {φ₁ φ₂ G₁ G₂}
       → (ss : SSplit G G₁ G₂)
-      → (κ₁ : Cont TUnit G₁ φ₁)
-      → (κ₂ : Cont TUnit G₂ φ₂)
+      → (κ₁ : Cont G₁ φ₁ TUnit)
+      → (κ₂ : Cont G₂ φ₂ TUnit)
       → Command G
 
     Stopped : ∀ {φ t G₁ G₂}
       → (ss : SSplit G G₁ G₂)
       → (v : Val G₁ t)
-      → (κ : Cont t G₂ φ)
+      → (κ : Cont G₂ φ t)
       → Command G
 
     Halt :
@@ -395,35 +227,28 @@ mutual
       → Command G
     New : ∀ {φ}
       → (s : STy)
-      → (κ : Cont (TPair (TChan s) (TChan (dual s))) G φ)
+      → (κ : Cont G φ (TPair (TChan s) (TChan (dual s))))
       → Command G
     Close : ∀ {φ G₁ G₂}
       → (ss : SSplit G G₁ G₂)
       → (v : Val G₁ (TChan SEnd!))
-      → (κ : Cont TUnit G₂ φ)
+      → (κ : Cont G₂ φ TUnit)
       → Command G
     Wait  : ∀ {φ G₁ G₂}
       → (ss : SSplit G G₁ G₂)
       → (v : Val G₁ (TChan SEnd?))
-      → (κ : Cont TUnit G₂ φ)
+      → (κ : Cont G₂ φ TUnit)
       → Command G
 
 -- 
 
--- finish a computation
-halt-cont : ∀ {G φ} → All Unr φ → VEnv G φ → Cont TUnit G φ
-halt-cont unr-φ ϱ = cont ϱ (λ {G'} {Gx} ss-G'GxG vGxt ϱ' → Halt (ssplit-inactive ss-G'GxG (unrestricted-val UUnit vGxt) (unrestricted-venv unr-φ ϱ)))
-
--- 
 rewrite-helper : ∀ {G G1 G2 G'' φ'} → Inactive G2 → SSplit G G1 G2 → SSplit G G G'' → VEnv G2 φ' → VEnv G'' φ'
 rewrite-helper ina-G2 ssp-GG1G2 ssp-GGG'' ϱ with inactive-right-ssplit ssp-GG1G2 ina-G2
 ... | p with rewrite-ssplit1 (sym p) ssp-GG1G2
 ... | ssp rewrite ssplit-function2 ssp ssp-GGG'' = ϱ
 
-fork-cont : ∀ {φ G' Gx G} → Fuel → Expr φ TUnit → SSplit G' Gx G → Val Gx TUnit → VEnv G φ →  Command G'
-
 -- apply a continuation
-apply-cont : ∀ {G G₁ G₂ t φ} → Fuel → (ssp : SSplit G G₁ G₂) (κ : Cont t G₂ φ) → Val G₁ t → Command G
+apply-cont : ∀ {G G₁ G₂ t φ} → Fuel → (ssp : SSplit G G₁ G₂) (κ : Cont G₂ φ t) → Val G₁ t → Command G
 
 run : ∀ {φ φ₁ φ₂ t G G₁ G₂}
   → Fuel
@@ -431,7 +256,7 @@ run : ∀ {φ φ₁ φ₂ t G G₁ G₂}
   → SSplit G G₁ G₂
   → Expr φ₁ t
   → VEnv G₁ φ₁
-  → Cont t G₂ φ₂
+  → Cont G₂ φ₂ t
   → Command G
 run{G = G}{G₁ = G₁}{G₂ = G₂} f tsp ssp (var x) ϱ κ with access ϱ x
 ... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina = apply-cont f ssp κ v
@@ -451,8 +276,12 @@ run f tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
 run f tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gvp , Gr , ina-Gr , ss-vpr , VPair ss-GG₁G₂ v₁ v₂ with split-rotate tsp sp
 ... | φ' , ts-φφ1φ' , ts-φ'φ3φ4 rewrite inactive-right-ssplit ss-vpr ina-Gr with ssplit-compose _ _ _ _ _ ss-G1G1'G2' ss-GG₁G₂
 ... | Gi , ss-G3G1Gi , ss-G1G2G2' = run f (left (left ts-φ'φ3φ4)) ssp e (vcons ss-G3G1Gi v₁ (vcons ss-G1G2G2' v₂ ϱ₂)) κ 
-run{φ}{G = G} f tsp ssp (fork e) ϱ κ =
-  Fork ssp (cont ϱ (fork-cont f e)) κ
+run{φ}{φ₁}{G = G}{G₁ = G₁} f tsp ssp (fork e) ϱ κ with ssplit-refl-left G₁ | split-refl-left φ₁
+... | Gi , ss-g1g1g2 | φ' , unr-φ' , sp-φφφ' with split-env sp-φφφ' ϱ
+... | (Gp1 , Gp2) , ss-Gp , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ' ϱ₂
+... | ina-Gp2 with inactive-right-ssplit-transform ss-Gp ina-Gp2
+... | ss-Gp' rewrite sym (ssplit-function2 ss-g1g1g2 ss-Gp') =
+  Fork ssp (bind sp-φφφ' ss-g1g1g2 (lift-expr UUnit e) ϱ (halt-cont unr-φ' UUnit ϱ₂)) κ
 run f tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina rewrite inactive-left-ssplit ssp ina = New s κ
 run f tsp ssp (close ch) ϱ κ with access ϱ ch
@@ -463,21 +292,14 @@ run f tsp ssp (wait ch) ϱ κ with access ϱ ch
 ... | vch' | refl = Wait ssp vch' κ
 
 
-apply-cont f ssp (cont ϱ c) v = c ssp v ϱ
+apply-cont f ssp (halt-cont un-φ un-t ϱ) v with unrestricted-venv un-φ ϱ | unrestricted-val un-t v
+... | inG1 | inG2 = Halt (ssplit-inactive ssp inG2 inG1)
 apply-cont (More f) ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 _ _ _ _ _ ssp ss
 ... | Gi , ss-GGiG4 , ss-GiG1G3 =
   run f (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
 apply-cont Empty ssp (bind ts ss e₂ ϱ₂ κ) v =
   Stopped {!!} {!!} {!!}
 
-
-fork-cont {φ}{ G'}{ Gx}{ G} (More f) e ssp_x_ϱ vx ϱ' with unrestricted-val UUnit vx
-... | inaGx rewrite inactive-left-ssplit ssp_x_ϱ inaGx with ssplit-refl-left G | split-refl-left φ
-... | G'' , sspGG' | φ' , unr-φ' , sp-φφφ' with split-env sp-φφφ' ϱ'
-... | (G1 , G2) , ssp-G1G2 , ϱ₁' , ϱ₂' with unrestricted-venv unr-φ' ϱ₂'
-... | ina-G2 = run f sp-φφφ' sspGG' e ϱ' (halt-cont unr-φ' (rewrite-helper ina-G2 ssp-G1G2 sspGG' ϱ₂'))
-fork-cont {φ}{ G'}{ Gx}{ G} Empty e ssp_x_ϱ vx ϱ' =
-  Stopped {!!} {!!} {!!}
 
 -- lifting through a trivial extension
 
@@ -491,8 +313,8 @@ lift-venv : ∀ {G φ} → VEnv G φ → VEnv (nothing ∷ G) φ
 lift-venv (vnil ina) = vnil (::-inactive _ ina)
 lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
 
-lift-cont : ∀ {G t φ} → Cont t G φ → Cont t (nothing ∷ G) φ
-lift-cont (cont ϱ c) = cont (lift-venv ϱ) {!!}
+lift-cont : ∀ {G t φ} → Cont G φ t → Cont (nothing ∷ G) φ t
+lift-cont (halt-cont un-φ un-t ϱ) = halt-cont un-φ un-t (lift-venv ϱ)
 lift-cont (bind ts ss e₂ ϱ₂ κ) = bind ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
@@ -511,6 +333,43 @@ data ThreadPool (G : SCtx) : Set where
 lift-threadpool : ∀ {G} → ThreadPool G → ThreadPool (nothing ∷ G)
 lift-threadpool (tnil ina) = tnil (::-inactive _ ina)
 lift-threadpool (tcons ss cmd tp) = tcons (ss-both ss) (lift-command cmd) (lift-threadpool tp)
+
+-- find matching wait instruction in threadpool
+vcr-match : ∀ {G G₁ G₂ b₁ b₂ s₁ s₂}
+  → SSplit G G₁ G₂
+  → ValidChannelRef G₁ b₁ s₁
+  → ValidChannelRef G₂ b₂ s₂
+  → Maybe (b₁ ≡ not b₂ × s₁ ≡ dual s₂)
+vcr-match () (here-pos ina-G) (here-pos ina-G₁)
+vcr-match (ss-posneg ss) (here-pos ina-G) (here-neg ina-G₁) = just (refl , sym (dual-involution _))
+vcr-match (ss-left ss) (here-pos ina-G) (there vcr2) = nothing
+vcr-match (ss-negpos ss) (here-neg ina-G) (here-pos ina-G₁) = just (refl , refl)
+vcr-match (ss-left ss) (here-neg ina-G) (there vcr2) = nothing
+vcr-match (ss-right ss) (there vcr1) (here-pos ina-G) = nothing
+vcr-match (ss-right ss) (there vcr1) (here-neg ina-G) = nothing
+vcr-match (ss-both ss) (there vcr1) (there vcr2) = vcr-match ss vcr1 vcr2
+
+findMatchingWait : ∀ {G G₁ G₂}
+  → SSplit G G₁ G₂
+  → Val G₁ (TChan SEnd!)
+  → ThreadPool G₂
+  → Maybe (Σ SCtx λ G' → Val G' (TChan SEnd?))
+findMatchingWait ss v (tnil ina) = nothing
+findMatchingWait ss v (tcons ss₁ (Fork ss₂ x x₁) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
+findMatchingWait ss v (tcons ss₁ (Fork ss₂ x x₁) tp) | G' , _ , ss' = findMatchingWait ss' v tp
+findMatchingWait ss v (tcons ss₁ (Halt _) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
+... | G' , _ , ss' = findMatchingWait ss' v tp
+findMatchingWait ss v (tcons ss₁ (New s κ) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
+... | G' , _ , ss' = findMatchingWait ss' v tp
+findMatchingWait ss v (tcons ss₁ (Close ss-c v' κ) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
+... | G' , _ , ss' = findMatchingWait ss' v tp
+findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) with b xor b₁ | ssplit-compose2 _ _ _ _ _ ss ss₁
+findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | false | G' , _ , ss' = findMatchingWait ss' (VChan b vcr) tp
+findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | true | G' , ss'' , ss' with ssplit-compose3 _ _ _ _ _ ss ss₁
+findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | true | G' , ss'' , ss' | Gi , ssi4 , ssi13 with vcr-match {!!} vcr vcr₁
+... | vcrm = just {!!}
+findMatchingWait ss (VChan b vcr) (tcons ss₁ (Stopped _ _ _) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
+... | G' , _ , ss' = findMatchingWait ss' (VChan b vcr) tp
 
 -- thread scheduling
 schedule : Fuel → (G : SCtx) → ThreadPool G → ⊤
@@ -534,3 +393,8 @@ schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 schedule (More f) G (tcons ss (Close ss-vκ v κ) tp) = {!!}
 schedule (More f) G (tcons ss (Wait ss-vκ v κ) tp) = {!!}
 schedule Empty G (tcons _ _ _) = {!!}
+
+-- start main thread
+start : Fuel → Expr [] TUnit → ⊤
+start f e =
+  schedule f [] (tcons ss-[] (run f [] ss-[] e (vnil []-inactive) (halt-cont [] UUnit (vnil []-inactive))) (tnil []-inactive))
