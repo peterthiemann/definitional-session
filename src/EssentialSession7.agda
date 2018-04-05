@@ -15,76 +15,9 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
 open import Typing
-
+open import Syntax
 open import Global
 
--- expressions
-data Expr : (φ : TCtx) → Ty → Set where
-  var : ∀ {t φ}
-      → (x : t ∈ φ)
-      → Expr φ t
-
-  nat : ∀ {φ}
-      → (unr-φ : All Unr φ)
-      → (i : ℕ)
-      → Expr φ TInt
-
-  letbind : ∀ {φ φ₁ φ₂ t₁ t₂}
-    → (sp : Split φ φ₁ φ₂)
-    → (e₁ : Expr φ₁ t₁)
-    → (e₂ : Expr (t₁ ∷ φ₂) t₂)
-    → Expr φ t₂
-
-  pair : ∀ {φ φ₁ φ₂ t₁ t₂}
-    → (sp : Split φ φ₁ φ₂)
-    → (x₁ : t₁ ∈ φ₁)
-    → (x₂ : t₂ ∈ φ₂)
-    → Expr φ (TPair t₁ t₂)
-
-  letpair : ∀ {φ φ₁ φ₂ t₁ t₂ t}
-    → (sp : Split φ φ₁ φ₂)
-    → (p : TPair t₁ t₂ ∈ φ₁)
-    → (e : Expr (t₁ ∷ t₂ ∷ φ₂) t)
-    → Expr φ t
-
-  fork : ∀ { φ}
-    → (e : Expr φ TUnit)
-    → Expr φ TUnit
-
-  new : ∀ {φ}
-      → (unr-φ : All Unr φ)
-      → (s : STy)
-      → Expr φ (TPair (TChan s) (TChan (dual s)))
-{-
-  -- takes only variables to avoid extraneous effects
-  send : ∀ {φ φ₁ φ₂ s t}
-      → (sp : Split φ φ₁ φ₂)
-      → (ch : (TChan (SSend t s)) ∈ φ₁)
-      → (vv : t ∈ φ₂)
-      → Expr φ (TChan s)
-  -- takes only variables to avoid extraneous effects
-  recv : ∀ {φ s t}
-      → (ch : (TChan (SRecv t s)) ∈ φ)
-      → Expr φ (TPair (TChan s) t)
--}
-  close : ∀ { φ}
-      → (ch : TChan SEnd! ∈ φ)
-      → Expr φ TUnit
-
-  wait : ∀ { φ}
-      → (ch : TChan SEnd? ∈ φ)
-      → Expr φ TUnit
-
-lift-expr : ∀ {φ t tᵤ} → Unr tᵤ → Expr φ t → Expr (tᵤ ∷ φ) t
-lift-expr unrtu (var x) = var (there unrtu x)
-lift-expr unrtu (nat unr-φ i) = nat (unrtu ∷ unr-φ) i
-lift-expr unrtu (letbind sp e e₁) = letbind (left sp) (lift-expr unrtu e) e₁
-lift-expr unrtu (pair sp x₁ x₂) = pair (rght sp) x₁ (there unrtu x₂)
-lift-expr unrtu (letpair sp p e) = letpair (left sp) (there unrtu p) e
-lift-expr unrtu (fork e) = lift-expr unrtu e
-lift-expr unrtu (new unr-φ s) = new (unrtu ∷ unr-φ) s
-lift-expr unrtu (close ch) = close (there unrtu ch)
-lift-expr unrtu (wait ch) = wait (there unrtu ch)
 
 -- the main part of a channel endpoint value is a valid channel reference
 -- the boolean determines whether it's the front end or the back end of the channel
@@ -298,8 +231,10 @@ apply-cont (More f) ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 _ _ _ 
 ... | Gi , ss-GGiG4 , ss-GiG1G3 =
   run f (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
 apply-cont Empty ssp (bind ts ss e₂ ϱ₂ κ) v =
-  Stopped {!!} {!!} {!!}
+  Stopped ssp v (bind ts ss e₂ ϱ₂ κ)
 
+extract-inactive-from-cont : ∀ {G t φ} → Unr t → Cont G φ t → Σ SCtx λ G' → Inactive G' × SSplit G G' G
+extract-inactive-from-cont{G} un-t κ = ssplit-refl-right-inactive G
 
 -- lifting through a trivial extension
 
@@ -330,11 +265,24 @@ data ThreadPool (G : SCtx) : Set where
   tnil : (ina : Inactive G) → ThreadPool G
   tcons : ∀ {G₁ G₂} → (ss : SSplit G G₁ G₂) → (cmd : Command G₁) → (tp : ThreadPool G₂) → ThreadPool G
 
+-- tack a task to the end of a thread pool to implement round robin scheduling
+tsnoc : ∀ {G Gpool Gcmd} → SSplit G Gcmd Gpool → ThreadPool Gpool → Command Gcmd → ThreadPool G
+tsnoc ss (tnil ina) cmd = tcons ss cmd (tnil ina)
+tsnoc ss (tcons ss₁ cmd₁ tp) cmd with ssplit-compose2 _ _ _ _ _ ss ss₁
+... | Gi , ss-top , ss-rec = tcons (ssplit-sym ss-top) cmd₁ (tsnoc ss-rec tp cmd)
+
+-- append thread pools
+tappend : ∀ {G G1 G2} → SSplit G G1 G2 → ThreadPool G1 → ThreadPool G2 → ThreadPool G
+tappend ss-top (tnil ina) tp2 rewrite inactive-left-ssplit ss-top ina = tp2
+tappend ss-top (tcons ss cmd tp1) tp2 with ssplit-compose _ _ _ _ _ ss-top ss
+... | Gi , ss-top' , ss-rec = tcons ss-top' cmd (tappend ss-rec tp1 tp2)
+
+-- apply the inactive extension to a thread pool
 lift-threadpool : ∀ {G} → ThreadPool G → ThreadPool (nothing ∷ G)
 lift-threadpool (tnil ina) = tnil (::-inactive _ ina)
 lift-threadpool (tcons ss cmd tp) = tcons (ss-both ss) (lift-command cmd) (lift-threadpool tp)
 
--- find matching wait instruction in threadpool
+-- find matching wait instruction in thread pool
 vcr-match : ∀ {G G₁ G₂ b₁ b₂ s₁ s₂}
   → SSplit G G₁ G₂
   → ValidChannelRef G₁ b₁ s₁
@@ -349,38 +297,58 @@ vcr-match (ss-right ss) (there vcr1) (here-pos ina-G) = nothing
 vcr-match (ss-right ss) (there vcr1) (here-neg ina-G) = nothing
 vcr-match (ss-both ss) (there vcr1) (there vcr2) = vcr-match ss vcr1 vcr2
 
-findMatchingWait : ∀ {G G₁ G₂}
-  → SSplit G G₁ G₂
-  → Val G₁ (TChan SEnd!)
-  → ThreadPool G₂
-  → Maybe (Σ SCtx λ G' → Val G' (TChan SEnd?))
-findMatchingWait ss v (tnil ina) = nothing
-findMatchingWait ss v (tcons ss₁ (Fork ss₂ x x₁) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
-findMatchingWait ss v (tcons ss₁ (Fork ss₂ x x₁) tp) | G' , _ , ss' = findMatchingWait ss' v tp
-findMatchingWait ss v (tcons ss₁ (Halt _) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
-... | G' , _ , ss' = findMatchingWait ss' v tp
-findMatchingWait ss v (tcons ss₁ (New s κ) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
-... | G' , _ , ss' = findMatchingWait ss' v tp
-findMatchingWait ss v (tcons ss₁ (Close ss-c v' κ) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
-... | G' , _ , ss' = findMatchingWait ss' v tp
-findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) with b xor b₁ | ssplit-compose2 _ _ _ _ _ ss ss₁
-findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | false | G' , _ , ss' = findMatchingWait ss' (VChan b vcr) tp
-findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | true | G' , ss'' , ss' with ssplit-compose3 _ _ _ _ _ ss ss₁
-findMatchingWait ss (VChan b vcr) (tcons ss₁ (Wait ss-w (VChan b₁ vcr₁) κ) tp) | true | G' , ss'' , ss' | Gi , ssi4 , ssi13 with vcr-match {!!} vcr vcr₁
-... | vcrm = just {!!}
-findMatchingWait ss (VChan b vcr) (tcons ss₁ (Stopped _ _ _) tp) with ssplit-compose2 _ _ _ _ _ ss ss₁
-... | G' , _ , ss' = findMatchingWait ss' (VChan b vcr) tp
+matchWaitAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ}
+  → SSplit G Gc Gtp
+  -- close command
+  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan SEnd!) × Cont Gc₂ φ TUnit
+  -- focused thread pool
+  → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
+  → Maybe (Σ SCtx λ G' → ThreadPool G')
+matchWaitAndGo ss-top cl-info ss-tp  (tnil ina) tp-acc = nothing
+matchWaitAndGo ss-top cl-info ss-tp  (tcons ss (Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Fork ss₁ κ₁ κ₂) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Stopped ss₁ v κ) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Halt x) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss (New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (New s κ) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Close ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Close ss₁ v κ) tp-acc)
+matchWaitAndGo ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (tcons ss (Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc with ssplit-compose6 ss ss₁
+... | Gi , ss-g3gi , ss-g4g2 with ssplit-compose6 ss-tp ss-g3gi
+... | Gi' , ss-g3gi' , ss-gtpacc with ssplit-join ss-top ss-cl ss-g3gi'
+... | Gchannels , Gother , ss-top' , ss-channels , ss-others with vcr-match ss-channels cl-vcr w-vcr
+matchWaitAndGo ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (tcons ss (Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc | Gi , ss-g3gi , ss-g4g2 | Gi' , ss-g3gi' , ss-gtpacc | Gchannels , Gother , ss-top' , ss-channels , ss-others | nothing with ssplit-compose5 ss-tp ss
+... | _ , ss-tp' , ss' = matchWaitAndGo ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp' tp-wl (tcons ss' (Wait ss₁ (VChan w-b w-vcr) κ) tp-acc)
+matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (tcons ss (Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc | Gi , ss-g3gi , ss-g4g2 | Gi' , ss-g3gi' , ss-gtpacc | Gchannels , Gother , ss-top' , ss-channels , ss-others | just x with ssplit-refl-right-inactive Gc₂
+... | Gunit , ina-Gunit , ss-stopped with extract-inactive-from-cont UUnit κ
+... | Gunit' , ina-Gunit' , ss-stopped' with ssplit-compose _ _ _ _ _ ss-gtpacc (ssplit-sym ss-g4g2)
+... | Gi'' , ss-int , ss-g2gacc with ssplit-compose2 _ _ _ _ _ ss-others ss-int
+... | Gi''' , ss-other , ss-outer-cons = just (Gother , tappend (ssplit-sym ss-other) tp-wl (tcons ss-outer-cons (Stopped ss-stopped (VUnit ina-Gunit) cl-κ) (tcons ss-g2gacc (Stopped ss-stopped' (VUnit ina-Gunit') κ) tp-acc)))
+
+
+
+data Outcome : Set where
+  Terminated : Outcome
+  OutOfFuel : ∀ {G} → ThreadPool G → Outcome
 
 -- thread scheduling
-schedule : Fuel → (G : SCtx) → ThreadPool G → ⊤
-schedule f G (tnil ina) = tt
+schedule : Fuel → (G : SCtx) → ThreadPool G → Outcome
+schedule f G (tnil ina) = Terminated
 schedule (More f) G (tcons ss (Fork{G₁ = G₁}{G₂ = G₂} ss₁ κ₁ κ₂) tp) with ssplit-compose _ _ _ _ _ ss ss₁
 ... | Gi , ss₁₃ , ss₂₄ with ssplit-refl-right G₁ | ssplit-refl-right G₂
 ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
   schedule f G
     (tcons ss₁₃ (apply-cont f ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
     (tcons ss₂₄ (apply-cont f ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
-schedule (More f) G (tcons ss (Stopped ss₁ v κ) tp) = {!!}
+schedule (More f) G (tcons ss (Stopped ss₁ v κ) tp) =
+  schedule f G (tsnoc ss tp (apply-cont f ss₁ κ v))
 schedule (More f) G (tcons ss (Halt inaG) tp) with tp | inactive-left-ssplit ss inaG
 schedule (More f) G (tcons ss (Halt inaG) tp) | tp' | refl = schedule f G tp'
 schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
@@ -390,11 +358,14 @@ schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
     (tcons (ss-left ss)
            (apply-cont f (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi)) (VChan false (here-neg ina-Gi))))
            (lift-threadpool tp))
-schedule (More f) G (tcons ss (Close ss-vκ v κ) tp) = {!!}
-schedule (More f) G (tcons ss (Wait ss-vκ v κ) tp) = {!!}
-schedule Empty G (tcons _ _ _) = {!!}
+schedule (More f) G (tcons{G₁}{G₂} ss (Close ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
+... | G' , ina-G' , ss-GG' with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
+schedule (More f) G (tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | just (Gnext , tpnext) = schedule f Gnext tpnext
+schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Close ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Wait ss-vκ v κ) tp) = schedule f G (tsnoc ss tp cmd)
+schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 
 -- start main thread
-start : Fuel → Expr [] TUnit → ⊤
+start : Fuel → Expr [] TUnit → Outcome
 start f e =
   schedule f [] (tcons ss-[] (run f [] ss-[] e (vnil []-inactive) (halt-cont [] UUnit (vnil []-inactive))) (tnil []-inactive))
