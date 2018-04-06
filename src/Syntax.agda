@@ -43,7 +43,7 @@ data Expr : (φ : TCtx) → Ty → Set where
       → (unr-φ : All Unr φ)
       → (s : STy)
       → Expr φ (TPair (TChan s) (TChan (dual s)))
-{-
+
   -- takes only variables to avoid extraneous effects
   send : ∀ {φ φ₁ φ₂ s t}
       → (sp : Split φ φ₁ φ₂)
@@ -54,7 +54,7 @@ data Expr : (φ : TCtx) → Ty → Set where
   recv : ∀ {φ s t}
       → (ch : (TChan (SRecv t s)) ∈ φ)
       → Expr φ (TPair (TChan s) t)
--}
+
   close : ∀ { φ}
       → (ch : TChan SEnd! ∈ φ)
       → Expr φ TUnit
@@ -73,3 +73,5 @@ lift-expr unrtu (fork e) = lift-expr unrtu e
 lift-expr unrtu (new unr-φ s) = new (unrtu ∷ unr-φ) s
 lift-expr unrtu (close ch) = close (there unrtu ch)
 lift-expr unrtu (wait ch) = wait (there unrtu ch)
+lift-expr unrtu (send sp ch vv) = send (rght sp) ch (there unrtu vv)
+lift-expr unrtu (recv ch) = recv (there unrtu ch)
