@@ -17,21 +17,7 @@ open import Relation.Binary.PropositionalEquality
 open import Typing
 open import Syntax
 open import Global
-
-
--- the main part of a channel endpoint value is a valid channel reference
--- the boolean determines whether it's the front end or the back end of the channel
--- enforces that the session context has only one channel
-data ValidChannelRef : (G : SCtx) (b : Bool) (s : STy) → Set where
-  here-pos : ∀ {s} {G : SCtx}
-    → (ina-G : Inactive G)
-    → ValidChannelRef (just (s , POS) ∷ G) true s
-  here-neg : ∀ {s} {G : SCtx}
-    → (ina-G : Inactive G)
-    → ValidChannelRef (just (s , NEG) ∷ G) false (dual s)
-  there : ∀ {b s} {G : SCtx}
-    → (vcr : ValidChannelRef G b s)
-    → ValidChannelRef (nothing ∷ G) b s
+open import Channel
 
 -- a value indexed by a *relevant* session context, which is "used up" by the value
 data Val (G : SCtx) : Ty → Set where
@@ -172,7 +158,18 @@ mutual
       → (v : Val G₁ (TChan SEnd?))
       → (κ : Cont G₂ φ TUnit)
       → Command G
-
+    Send : ∀ {φ G₁ G₂ G₁₁ G₁₂ t s}
+      → (ss : SSplit G G₁ G₂)
+      → (ss-args : SSplit G₁ G₁₁ G₁₂)
+      → (vch : Val G₁₁ (TChan (SSend t s)))
+      → (v : Val G₁₂ t)
+      → (κ : Cont G₂ φ (TChan s))
+      → Command G
+    Recv : ∀ {φ G₁ G₂ t s}
+      → (ss : SSplit G G₁ G₂)
+      → (vch : Val G₁ (TChan (SRecv t s)))
+      → (κ : Cont G₂ φ (TPair (TChan s) t))
+      → Command G
 -- 
 
 rewrite-helper : ∀ {G G1 G2 G'' φ'} → Inactive G2 → SSplit G G1 G2 → SSplit G G G'' → VEnv G2 φ' → VEnv G'' φ'
@@ -223,6 +220,13 @@ run f tsp ssp (close ch) ϱ κ | Gch , Gϱ , ina , ssp12 , vch | vch' | refl = C
 run f tsp ssp (wait ch) ϱ κ with access ϱ ch
 ... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
 ... | vch' | refl = Wait ssp vch' κ
+run f tsp ssp (send sp ch vv) ϱ κ with split-env sp ϱ
+... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ ch
+... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vch with access ϱ₂ vv
+... | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , vvv with ssplit-join ss-gg ss-g1g3g4 ss-g2g5g6
+... | G₁' , G₂' , ss-g1'g2' , ss-g3g5 , ss-g4g6 rewrite sym (inactive-right-ssplit ss-g1g3g4 ina-G₄) | sym (inactive-right-ssplit ss-g2g5g6 ina-G₆) = Send ssp ss-gg vch vvv κ
+run f tsp ssp (recv ch) ϱ κ with access ϱ ch
+... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Recv ssp vch κ
 
 
 apply-cont f ssp (halt-cont un-φ un-t ϱ) v with unrestricted-venv un-φ ϱ | unrestricted-val un-t v
@@ -259,6 +263,9 @@ lift-command (Halt x) = Halt (::-inactive _ x)
 lift-command (New s κ) = New s (lift-cont κ)
 lift-command (Close ss v κ) = Close (ss-both ss) (lift-val v) (lift-cont κ)
 lift-command (Wait ss v κ) = Wait (ss-both ss) (lift-val v) (lift-cont κ)
+lift-command (Send ss ss-args vch v κ) = Send (ss-both ss) (ss-both ss-args) (lift-val vch) (lift-val v) (lift-cont κ)
+lift-command (Recv ss vch κ) = Recv (ss-both ss) (lift-val vch) (lift-cont κ)
+
 
 -- threads
 data ThreadPool (G : SCtx) : Set where
@@ -282,21 +289,6 @@ lift-threadpool : ∀ {G} → ThreadPool G → ThreadPool (nothing ∷ G)
 lift-threadpool (tnil ina) = tnil (::-inactive _ ina)
 lift-threadpool (tcons ss cmd tp) = tcons (ss-both ss) (lift-command cmd) (lift-threadpool tp)
 
--- find matching wait instruction in thread pool
-vcr-match : ∀ {G G₁ G₂ b₁ b₂ s₁ s₂}
-  → SSplit G G₁ G₂
-  → ValidChannelRef G₁ b₁ s₁
-  → ValidChannelRef G₂ b₂ s₂
-  → Maybe (b₁ ≡ not b₂ × s₁ ≡ dual s₂)
-vcr-match () (here-pos ina-G) (here-pos ina-G₁)
-vcr-match (ss-posneg ss) (here-pos ina-G) (here-neg ina-G₁) = just (refl , sym (dual-involution _))
-vcr-match (ss-left ss) (here-pos ina-G) (there vcr2) = nothing
-vcr-match (ss-negpos ss) (here-neg ina-G) (here-pos ina-G₁) = just (refl , refl)
-vcr-match (ss-left ss) (here-neg ina-G) (there vcr2) = nothing
-vcr-match (ss-right ss) (there vcr1) (here-pos ina-G) = nothing
-vcr-match (ss-right ss) (there vcr1) (here-neg ina-G) = nothing
-vcr-match (ss-both ss) (there vcr1) (there vcr2) = vcr-match ss vcr1 vcr2
-
 matchWaitAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ}
   → SSplit G Gc Gtp
   -- close command
@@ -317,6 +309,12 @@ matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Halt x) tp-wl) tp-acc with ssplit
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss (New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (New s κ) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Send _ ss-args vch v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Recv _ vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Close ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Close ss₁ v κ) tp-acc)
@@ -332,7 +330,42 @@ matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (
 ... | Gi'' , ss-int , ss-g2gacc with ssplit-compose2 _ _ _ _ _ ss-others ss-int
 ... | Gi''' , ss-other , ss-outer-cons = just (Gother , tappend (ssplit-sym ss-other) tp-wl (tcons ss-outer-cons (Stopped ss-stopped (VUnit ina-Gunit) cl-κ) (tcons ss-g2gacc (Stopped ss-stopped' (VUnit ina-Gunit') κ) tp-acc)))
 
+matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
+  → SSplit G Gc Gtp
+  -- read command
+  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (SRecv t s)) × Cont Gc₂ φ (TPair (TChan s) t)
+  -- focused thread pool
+  → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
+  → Maybe (Σ SCtx λ G' → ThreadPool G')
+matchSendAndGo ss-top recv-info ss-tp (tnil ina) tp-acc = nothing
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Close ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Wait ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Recv ss₁ vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons ss cmd@(Send ss₁ ss-args (VChan b vcr) v κ) tp-wl) tp-acc with ssplit-compose6 ss₁ ss-args
+... | Gi , ss-g1g11gi , ss-gig12g3 with ssplit-compose6 ss ss-g1g11gi
+... | Gi' , ss-gtpwlg11g2 , ss-gi'gig2 with ssplit-compose6 ss-tp ss-gtpwlg11g2
+... | Gi'' , ss-gtpg11gi'' , ss-gi''gi'gtpacc with ssplit-join ss-top ss-rv ss-gtpg11gi''
+... | G₁' , G₂' , ss-gg1'g2' , ss-g1'gc1g11 , ss-g2'gc2gi'' with vcr-match-sr ss-g1'gc1g11 vcr₁ vcr
+... | just (t1≡t , ds1≡s , GG , GG1 , GG2 , ss-GGG12 , vcr-after-recv , vcr-after-send) = just ({!!} , tappend {!!} tp-wl (tcons {!!} (Stopped {!!} (VPair {!!} (VChan b₁ vcr-after-recv) {!v!}) κ-rv) (tcons {!!} (Stopped {!!} (VChan b vcr-after-send) κ) tp-acc)))
+... | nothing with ssplit-compose5 ss-tp ss
+... | Gi0 , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 
+-- TODO:
+-- * compute the upgraded G' : SCtx
+-- * move (v : Val G t) to (v' : Val G' t)
+-- * move (vcr : ValidChannelRef G b (SSend t s)) to (vcr : ValidChannelRef G' b s)
+-- ... for appropriate G G'
 
 data Outcome : Set where
   Terminated : Outcome
@@ -363,6 +396,8 @@ schedule (More f) G (tcons{G₁}{G₂} ss (Close ss-vκ v κ) tp) with ssplit-re
 schedule (More f) G (tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | just (Gnext , tpnext) = schedule f Gnext tpnext
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Close ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Wait ss-vκ v κ) tp) = schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Send _ _ _ _ _) tp) = schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Recv ss-vκ v κ) tp) = {!!}
 schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 
 -- start main thread
