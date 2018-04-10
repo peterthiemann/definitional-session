@@ -8,7 +8,8 @@ open import Relation.Binary.PropositionalEquality
 open import Typing
 
 -- global session context
-SCtx = List (Maybe (STy × PosNeg))
+SEntry = Maybe (STy × PosNeg)
+SCtx = List SEntry
 
 -- SSplit G G₁ G₂
 -- split G into G₁ and G₂
