@@ -252,6 +252,68 @@ ssplit-join (ss-negpos ss) (ss-right ss₁) (ss-right ss₂) with ssplit-join ss
                                                 just (_ , POSNEG) ∷ G₂' ,
                                                 ss-right ss-12 , ss-both ss-1121 , ss-negpos ss-2122
 
+-- another rotation
+ssplit-rotate : ∀ {G G1 G2 G21 G22 G211 G212 : SCtx}
+  → SSplit G G1 G2
+  → SSplit G2 G21 G22
+  → SSplit G21 G211 G212
+  → Σ SCtx λ G2'
+  → Σ SCtx λ G21'
+  → SSplit G G211 G2' × SSplit G2' G21' G22 × SSplit G21' G1 G212
+ssplit-rotate ss-[] ss-[] ss-[] =
+  [] , [] , ss-[] , ss-[] , ss-[]
+ssplit-rotate (ss-both ss-g12) (ss-both ss-g2122) (ss-both ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  nothing ∷ G2' , nothing ∷ G21' , (ss-both ss-g12') , (ss-both ss-g2122') , (ss-both ss-g211212')
+ssplit-rotate (ss-left ss-g12) (ss-both ss-g2122) (ss-both ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , (ss-right ss-g12') , ss-left ss-g2122' , ss-left ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-left ss-g2122) (ss-left ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-left ss-g12' , ss-both ss-g2122' , ss-both ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-left ss-g2122) (ss-right ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-left ss-g2122' , ss-right ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-left ss-g2122) (ss-posneg ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-posneg ss-g12' , ss-left ss-g2122' , ss-right ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-left ss-g2122) (ss-negpos ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-negpos ss-g12' , ss-left ss-g2122' , ss-right ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-right ss-g2122) (ss-both ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-right ss-g2122' , ss-both ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-posneg ss-g2122) (ss-left ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-posneg ss-g12' , ss-right ss-g2122' , ss-both ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-posneg ss-g2122) (ss-right ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-posneg ss-g2122' , ss-right ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-negpos ss-g2122) (ss-left ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-negpos ss-g12' , ss-right ss-g2122' , ss-both ss-g211212'
+ssplit-rotate (ss-right ss-g12) (ss-negpos ss-g2122) (ss-right ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-negpos ss-g2122' , ss-right ss-g211212'
+ssplit-rotate (ss-posneg ss-g12) (ss-left ss-g2122) (ss-left ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-negpos ss-g12' , ss-left ss-g2122' , ss-left ss-g211212'
+ssplit-rotate (ss-posneg ss-g12) (ss-left ss-g2122) (ss-right ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-left ss-g2122' , ss-posneg ss-g211212'
+ssplit-rotate (ss-posneg ss-g12) (ss-right ss-g2122) (ss-both ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-posneg ss-g2122' , ss-left ss-g211212'
+ssplit-rotate (ss-negpos ss-g12) (ss-left ss-g2122) (ss-left ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-posneg ss-g12' , ss-left ss-g2122' , ss-left ss-g211212'
+ssplit-rotate (ss-negpos ss-g12) (ss-left ss-g2122) (ss-right ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-left ss-g2122' , ss-negpos ss-g211212'
+ssplit-rotate (ss-negpos ss-g12) (ss-right ss-g2122) (ss-both ss-g211212) with ssplit-rotate ss-g12 ss-g2122 ss-g211212
+... | G2' , G21' , ss-g12' , ss-g2122' , ss-g211212' =
+  _ , _ , ss-right ss-g12' , ss-negpos ss-g2122' , ss-left ss-g211212'
+
 -- a session context is inactive if all its entries are void
 data Inactive : (G : SCtx) → Set where
   []-inactive : Inactive []
