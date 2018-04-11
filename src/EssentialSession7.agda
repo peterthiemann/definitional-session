@@ -356,16 +356,16 @@ matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons
 ... | Gi , ss-g1g11gi , ss-gig12g3 with ssplit-compose6 ss ss-g1g11gi
 ... | Gi' , ss-gtpwlg11g2 , ss-gi'gig2 with ssplit-compose6 ss-tp ss-gtpwlg11g2
 ... | Gi'' , ss-gtpg11gi'' , ss-gi''gi'gtpacc with ssplit-join ss-top ss-rv ss-gtpg11gi''
-... | G₁' , G₂' , ss-gg1'g2' , ss-g1'gc1g11 , ss-g2'gc2gi'' with vcr-match-sr ss-g1'gc1g11 vcr₁ vcr
-... | just (t1≡t , ds1≡s , GG , GG1 , GG2 , ss-GGG12 , vcr-after-recv , vcr-after-send) = just ({!!} , tappend {!!} tp-wl (tcons {!!} (Stopped {!!} (VPair {!!} (VChan b₁ vcr-after-recv) {!v!}) κ-rv) (tcons {!!} (Stopped {!!} (VChan b vcr-after-send) κ) tp-acc)))
-... | nothing with ssplit-compose5 ss-tp ss
+... | G₁' , G₂' , ss-gg1'g2' , ss-g1'gc1g11 , ss-g2'gc2gi'' with vcr-match-2-sr (ssplit2 ss-gg1'g2' ss-g1'gc1g11) vcr₁ vcr
+... | just (refl {-t1≡t-} , ds1≡s , GG , GG1 , GG11 , G12 , ssplit2 ss-out1 ss-out2 , vcr-recv , vcr-send) with ssplit-compose _ _ _ _ _ ss-gi''gi'gtpacc ss-gi'gig2
+... | GSi , ss-Gi''GiGi1 , ss-Gi1G2Gtpacc with ssplit-join ss-out1 ss-out2 ss-g2'gc2gi''
+... | GG1' , GG2' , ss-GG-GG1'-GG2' , ss-GG1'-GG11-Gc2 , ss-GG2'-G12-Gi'' with ssplit-rotate ss-GG2'-G12-Gi'' ss-Gi''GiGi1 ss-gig12g3
+... | Gi''+ , Gi+ , ss-GG2-G12-Gi''+ , ss-Gi''+Gi+Gsi , ss-Gi+-G12-G4 with ssplit-join ss-GG-GG1'-GG2' ss-GG1'-GG11-Gc2 ss-GG2-G12-Gi''+
+... | GG1'' , GG2'' , ss-GG-GG1''-GG2'' , ss-GG1''-GG11-G12 , ss-GG2''-Gc2-Gi''+ with ssplit-compose3 _ _ _ _ _ ss-GG-GG1''-GG2'' ss-GG2''-Gc2-Gi''+
+... | _ , ss-GG-Gii-Gi''+ , ss-Gii-GG1''-Gc2 = just (GG ,  (tcons ss-GG-Gii-Gi''+ (Stopped ss-Gii-GG1''-Gc2 (VPair ss-GG1''-GG11-G12 (VChan b₁ vcr-recv) v) κ-rv) (tcons ss-Gi''+Gi+Gsi (Stopped ss-Gi+-G12-G4 (VChan b vcr-send) κ) (tappend ss-Gi1G2Gtpacc tp-wl tp-acc))))
+matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons ss cmd@(Send ss₁ ss-args (VChan b vcr) v κ) tp-wl) tp-acc | Gi , ss-g1g11gi , ss-gig12g3 | Gi' , ss-gtpwlg11g2 , ss-gi'gig2 | Gi'' , ss-gtpg11gi'' , ss-gi''gi'gtpacc | G₁' , G₂' , ss-gg1'g2' , ss-g1'gc1g11 , ss-g2'gc2gi'' | nothing with ssplit-compose5 ss-tp ss
 ... | Gi0 , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 
--- TODO:
--- * compute the upgraded G' : SCtx
--- * move (v : Val G t) to (v' : Val G' t)
--- * move (vcr : ValidChannelRef G b (SSend t s)) to (vcr : ValidChannelRef G' b s)
--- ... for appropriate G G'
 
 data Outcome : Set where
   Terminated : Outcome
@@ -397,7 +397,10 @@ schedule (More f) G (tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp) | G' , ina-G
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Close ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Wait ss-vκ v κ) tp) = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Send _ _ _ _ _) tp) = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(Recv ss-vκ v κ) tp) = {!!}
+schedule (More f) G (tcons{G₁}{G₂} ss cmd@(Recv ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
+... | G' , ina-G' , ss-GG' with matchSendAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
+schedule (More f) G (tcons {G₁} {G₂} ss (Recv ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | just (G-next , tp-next) = schedule f G-next tp-next
+schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Recv ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
 schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 
 -- start main thread
