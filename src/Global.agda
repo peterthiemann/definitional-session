@@ -7,6 +7,10 @@ open import Relation.Binary.PropositionalEquality
 
 open import Typing
 
+-- specific
+data PosNeg : Set where
+  POS NEG POSNEG : PosNeg
+
 -- global session context
 SEntry = Maybe (STy × PosNeg)
 SCtx = List SEntry
