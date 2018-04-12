@@ -8,32 +8,31 @@ open import Data.Sum
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
--- specific
-data PosNeg : Set where
-  POS NEG POSNEG : PosNeg
-
 -- types and session types
 mutual
-  -- keep track which ends of a channel a process is allowed to possess
-  -- m >= n, but they are equal on the top level
   data Ty : Set where
     TUnit TInt : Ty
     TPair : Ty → Ty → Ty
     TChan : STy → Ty
 
   data STy : Set where
-    SSend SRecv : Ty → STy → STy
+    SSend SRecv : (t : Ty) → STy → STy
+    SIntern SExtern : (s₁ : STy) → (s₂ : STy) → STy
     SEnd! SEnd? : STy
 
 dual : STy → STy
 dual (SSend x s) = SRecv x (dual s)
 dual (SRecv x s) = SSend x (dual s)
+dual (SIntern s₁ s₂) = SExtern (dual s₁) (dual s₂)
+dual (SExtern s₁ s₂) = SIntern (dual s₁) (dual s₂)
 dual SEnd! = SEnd?
 dual SEnd? = SEnd!
 
 dual-involution : (s : STy) → dual (dual s) ≡ s
 dual-involution (SSend x s) rewrite dual-involution s = refl
 dual-involution (SRecv x s) rewrite dual-involution s = refl
+dual-involution (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
+dual-involution (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
 dual-involution SEnd! = refl
 dual-involution SEnd? = refl
 
