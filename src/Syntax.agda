@@ -6,6 +6,13 @@ open import Data.Nat
 
 open import Typing
 
+data Selector : Set where
+  Left Right : Selector
+
+selection : ∀ {A : Set} → Selector → A → A → A
+selection Left x y = x
+selection Right x y = y
+
 -- expressions
 data Expr : (φ : TCtx) → Ty → Set where
   var : ∀ {t φ}
@@ -63,6 +70,20 @@ data Expr : (φ : TCtx) → Ty → Set where
       → (ch : TChan SEnd? ∈ φ)
       → Expr φ TUnit
 
+  select : ∀ {s₁ s₂ φ}
+      → (lab : Selector)
+      → (ch : TChan (SIntern s₁ s₂) ∈ φ)
+      → Expr φ (TChan (selection lab s₁ s₂))
+
+  -- potential problem: if both branches return a channel, this typing does not require that it's the *same* channel
+  -- later on in the semantic model, there may be a mismatch in the resources returned by the branches
+  branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
+      → (sp : Split φ φ₁ φ₂)
+      → (ch : TChan (SExtern s₁ s₂) ∈ φ₁)
+      → (eleft : Expr (TChan s₁ ∷ φ₂) t)
+      → (erght : Expr (TChan s₂ ∷ φ₂) t)
+      → Expr φ t
+
 lift-expr : ∀ {φ t tᵤ} → Unr tᵤ → Expr φ t → Expr (tᵤ ∷ φ) t
 lift-expr unrtu (var x) = var (there unrtu x)
 lift-expr unrtu (nat unr-φ i) = nat (unrtu ∷ unr-φ) i
@@ -75,3 +96,5 @@ lift-expr unrtu (close ch) = close (there unrtu ch)
 lift-expr unrtu (wait ch) = wait (there unrtu ch)
 lift-expr unrtu (send sp ch vv) = send (rght sp) ch (there unrtu vv)
 lift-expr unrtu (recv ch) = recv (there unrtu ch)
+lift-expr unrtu (select lab ch) = select lab (there unrtu ch)
+lift-expr unrtu (branch sp ch x₁ x₂) = branch (left sp) (there unrtu ch) x₁ x₂
