@@ -404,7 +404,27 @@ matchBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ s₁ s₂}
   -- focused thread pool
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (Σ SCtx λ G' → ThreadPool G')
-matchBranchAndGo ss-top select-info ss-tp tp-wl tp-acc = {!!}
+matchBranchAndGo ss-top select-info ss-tp (tnil ina) tp-acc = nothing
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Close ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Wait ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Send ss₁ ss-args vch v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Recv ss₁ vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Select ss₁ lab vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top (ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-tp (tcons ss (Branch ss₁ (VChan b vcr) κ-left κ-rght) tp-wl) tp-acc with vcr-match-2-sb (ssplit2 {!!} {!!}) vcr₁ vcr lab
+... | vcr-match = {!!}
 
 data Outcome : Set where
   Terminated : Outcome
@@ -440,7 +460,10 @@ schedule (More f) G (tcons{G₁}{G₂} ss cmd@(Recv ss-vκ v κ) tp) with ssplit
 ... | G' , ina-G' , ss-GG' with matchSendAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
 schedule (More f) G (tcons {G₁} {G₂} ss (Recv ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | just (G-next , tp-next) = schedule f G-next tp-next
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Recv ss-vκ v κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(Select ss-vκ lab vch κ) tp) = {!!}
+schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Select ss-vκ lab vch κ) tp) with ssplit-refl-left-inactive G₂
+... | G' , ina-G' , ss-GG' with matchBranchAndGo ss (ss-vκ , lab , vch , κ) ss-GG' tp (tnil ina-G')
+schedule (More f) G (tcons {G₁} {G₂} ss (Select ss-vκ lab vch κ) tp) | G' , ina-G' , ss-GG' | just (G-next , tp-next) = schedule f G-next tp-next
+schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Select ss-vκ lab vch κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Branch ss-vκ vch κ-left κ-rght) tp) = schedule f G (tsnoc ss tp cmd)
 schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 
