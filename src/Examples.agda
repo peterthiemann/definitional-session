@@ -22,3 +22,35 @@ ex1dual =
   (letbind (left (rght []))
            (fork (close (here [])))
   (wait (there UUnit (here [])))))
+
+-- sending and receiving
+ex2 : Expr [] TUnit
+ex2 =
+  letbind [] (new [] (SSend TInt SEnd!))
+  (letpair (left []) (here [])
+  (letbind (left (rght []))
+           (fork (letbind (rght []) (nat [] 42)
+                 (letbind (left (left [])) (send (rght (left [])) (here []) (here []))
+                 (letbind (left []) (close (here []))
+                 (var (here []))))))
+  (letbind (rght (left [])) (recv (here []))
+  (letpair (left (rght [])) (here [])
+  (letbind (left (left (rght []))) (wait (here (UInt ∷ [])))
+  (var (here (UUnit ∷ []))))))))
+
+-- higher order sending and receiving
+ex3 : Expr [] TUnit
+ex3 =
+  letbind [] (new [] (SSend (TChan SEnd!) SEnd!))
+  (letbind (rght []) (new [] SEnd!)
+  (letpair (left (rght [])) (here [])
+  (letpair (rght (rght (left []))) (here [])
+  (letbind (left (rght (left (left []))))
+           (fork (letbind (left (left (rght []))) (send (left (rght [])) (here []) (here []))
+                 (letbind (left (rght [])) (close (here []))
+                 (wait (there UUnit (here []))))))
+  (letbind (left (left [])) (recv (there UUnit (here [])))
+  (letpair (left []) (here [])
+  (letbind (left (rght [])) (wait (here []))
+  (letbind (left (left [])) (close (there UUnit (here [])))
+  (var (here []))))))))))
