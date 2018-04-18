@@ -41,6 +41,7 @@ unrestricted-val UUnit (VUnit x) = x
 unrestricted-val UInt (VInt i x) = x
 unrestricted-val (UPair unrt unrt₁) (VPair x v v₁) =
   ssplit-inactive x (unrestricted-val unrt v) (unrestricted-val unrt₁ v₁)
+unrestricted-val UFun _ = {!!}
 
 -- type environment-indexed value environment
 -- session context G describes the entire environment, it splits over all (channel) values
@@ -251,7 +252,9 @@ run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp �
     dcont : (lab : Selector) → Cont Gi _ (TChan (selection lab s₁ s₂))
     dcont Left = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-left ϱ₂ κ
     dcont Right = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-rght ϱ₂ κ
-
+run f tsp ssp (ulambda sp unr-φ ebody) ϱ κ = {!!}
+run f tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ = {!!}
+run f tsp ssp (app sp efun earg) ϱ κ = {!!}
 
 apply-cont f ssp (halt-cont un-φ un-t ϱ) v with unrestricted-venv un-φ ϱ | unrestricted-val un-t v
 ... | inG1 | inG2 = Halt (ssplit-inactive ssp inG2 inG1)

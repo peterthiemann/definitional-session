@@ -9,11 +9,15 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
 -- types and session types
+data LU : Set where
+  LL UU : LU
+
 mutual
   data Ty : Set where
     TUnit TInt : Ty
     TPair : Ty → Ty → Ty
     TChan : STy → Ty
+    TFun : LU → Ty → Ty → Ty
 
   data STy : Set where
     SSend SRecv : (t : Ty) → STy → STy
@@ -45,23 +49,27 @@ data Lin : Ty → Set where
   LChan : ∀ {s} → Lin (TChan s)
   LPair1 : ∀ {t₁ t₂} → Lin t₁ → Lin (TPair t₁ t₂)
   LPair2 : ∀ {t₁ t₂} → Lin t₂ → Lin (TPair t₁ t₂)
+  LFun : ∀ {t₁ t₂} → Lin (TFun LL t₁ t₂)
 
 data Unr : Ty → Set where
   UUnit : Unr TUnit
   UInt : Unr TInt
   UPair : ∀ {t₁ t₂} → Unr t₁ → Unr t₂ → Unr (TPair t₁ t₂)
+  UFun :  ∀ {t₁ t₂} → Unr (TFun UU t₁ t₂)
 
 -- lin and unr are mutually exclusive
 lemma-lin-unr : ∀ {t} → Lin t → ¬ Unr t
 lemma-lin-unr LChan ()
 lemma-lin-unr (LPair1 lint) (UPair x x₁) = lemma-lin-unr lint x
 lemma-lin-unr (LPair2 lint) (UPair x x₁) = lemma-lin-unr lint x₁
+lemma-lin-unr LFun = λ ()
 
 lemma-unr-lin : ∀  {t} → Unr t → ¬ Lin t
 lemma-unr-lin UUnit ()
 lemma-unr-lin UInt ()
 lemma-unr-lin (UPair unr unr₁) (LPair1 lin) = lemma-unr-lin unr lin
 lemma-unr-lin (UPair unr unr₁) (LPair2 lin) = lemma-unr-lin unr₁ lin
+lemma-unr-lin UFun = λ ()
 
 -- should be expressible by pattern matching lambda, but ...
 destroy-left : ∀ {t₁ t₂} → ¬ Unr t₁ → ¬ Unr (TPair t₁ t₂)
@@ -79,6 +87,9 @@ unrestricted-type (TPair t₁ t₂) | yes p | no ¬p = no (destroy-right ¬p)
 unrestricted-type (TPair t₁ t₂) | no ¬p | yes p = no (destroy-left ¬p)
 unrestricted-type (TPair t₁ t₂) | no ¬p | no ¬p₁ = no (destroy-left ¬p)
 unrestricted-type (TChan x) = no (λ ())
+unrestricted-type (TFun LL t₁ t₂) = no (λ ())
+unrestricted-type (TFun UU t₁ t₂) = yes UFun
+
 
 destroy-both : ∀ {t₁ t₂} → ¬ Lin t₁ → ¬ Lin t₂ → ¬ Lin (TPair t₁ t₂)
 destroy-both ¬l₁ ¬l₂ (LPair1 ltp) = ¬l₁ ltp
@@ -93,6 +104,9 @@ linear-type (TPair t₁ t₂) | yes p | no ¬p = yes (LPair1 p)
 linear-type (TPair t₁ t₂) | no ¬p | yes p = yes (LPair2 p)
 linear-type (TPair t₁ t₂) | no ¬p | no ¬p₁ = no (destroy-both ¬p ¬p₁)
 linear-type (TChan x) = yes LChan
+linear-type (TFun LL t₁ t₂) = yes LFun
+linear-type (TFun UU t₁ t₂) = no (λ ())
+
 
 classify-type : (t : Ty) → Lin t ⊎ Unr t
 classify-type TUnit = inj₂ UUnit
@@ -103,6 +117,9 @@ classify-type (TPair t₁ t₂) | inj₁ x | inj₂ y = inj₁ (LPair1 x)
 classify-type (TPair t₁ t₂) | inj₂ y | inj₁ x = inj₁ (LPair2 x)
 classify-type (TPair t₁ t₂) | inj₂ y | inj₂ y₁ = inj₂ (UPair y y₁)
 classify-type (TChan x) = inj₁ LChan
+classify-type (TFun LL t₁ t₂) = inj₁ LFun
+classify-type (TFun UU t₁ t₂) = inj₂ UFun
+
 
 -- typing context
 TCtx : Set
