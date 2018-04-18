@@ -54,3 +54,15 @@ ex3 =
   (letbind (left (rght [])) (wait (here []))
   (letbind (left (left [])) (close (there UUnit (here [])))
   (var (here []))))))))))
+
+-- branching
+ex4 : Expr [] TUnit
+ex4 =
+  letbind [] (new [] (SIntern SEnd! SEnd?))
+  (letpair (left []) (here [])
+  (letbind (left (rght []))
+           (fork (letbind (left []) (select Left (here []))
+                 (close (here []))))
+  (branch (left (left [])) (there UUnit (here []))
+          (wait (here []))
+          (close (here [])))))
