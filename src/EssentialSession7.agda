@@ -8,6 +8,7 @@ open import Data.List.All
 open import Data.Maybe hiding (All)
 open import Data.Nat
 open import Data.Product
+open import Data.Sum
 open import Data.Unit hiding (_≤_)
 -- open import Data.Vec hiding ( _∈_ ; _>>=_)
 open import Function
@@ -19,37 +20,45 @@ open import Syntax
 open import Global
 open import Channel
 
+mutual
 -- a value indexed by a *relevant* session context, which is "used up" by the value
-data Val (G : SCtx) : Ty → Set where
-  VUnit : (inaG : Inactive G)
-    → Val G TUnit
-  VInt  : (i : ℕ)
-    → (inaG : Inactive G)
-    → Val G TInt
-  VPair : ∀ {t₁ t₂ G₁ G₂}
-    → (ss-GG₁G₂ : SSplit G G₁ G₂)
-    → (v₁ : Val G₁ t₁)
-    → (v₂ : Val G₂ t₂)
-    → Val G (TPair t₁ t₂)
-  VChan : ∀ {s}
-    → (b : Bool)
-    → (vcr : ValidChannelRef G b s)
-    → Val G (TChan s)
+  data Val (G : SCtx) : Ty → Set where
+    VUnit : (inaG : Inactive G)
+      → Val G TUnit
+    VInt  : (i : ℕ)
+      → (inaG : Inactive G)
+      → Val G TInt
+    VPair : ∀ {t₁ t₂ G₁ G₂}
+      → (ss-GG₁G₂ : SSplit G G₁ G₂)
+      → (v₁ : Val G₁ t₁)
+      → (v₂ : Val G₂ t₂)
+      → Val G (TPair t₁ t₂)
+    VChan : ∀ {s}
+      → (b : Bool)
+      → (vcr : ValidChannelRef G b s)
+      → Val G (TChan s)
+    VFun : ∀ {φ lu t₁ t₂}
+      → (lu ≡ LL ⊎ All Unr φ)
+      → (ϱ : VEnv G φ)
+      → (e : Expr (t₁ ∷ φ) t₂)
+      → Val G (TFun lu t₁ t₂)
+
+  -- type environment-indexed value environment
+  -- session context G describes the entire environment, it splits over all (channel) values
+  data VEnv (G : SCtx) : TCtx → Set where
+    vnil : (ina : Inactive G) → VEnv G []
+    vcons : ∀{t φ G₁ G₂} → (ssp : SSplit G G₁ G₂) → (v : Val G₁ t) → (ϱ : VEnv G₂ φ) → VEnv G (t ∷ φ)
 
 unrestricted-val :  ∀ {t G} → Unr t → Val G t → Inactive G
+unrestricted-venv : ∀ {φ G} → All Unr φ → VEnv G φ → Inactive G
+
 unrestricted-val UUnit (VUnit x) = x
 unrestricted-val UInt (VInt i x) = x
 unrestricted-val (UPair unrt unrt₁) (VPair x v v₁) =
   ssplit-inactive x (unrestricted-val unrt v) (unrestricted-val unrt₁ v₁)
-unrestricted-val UFun _ = {!!}
+unrestricted-val {TFun UU t₁ t₂} UFun (VFun (inj₁ ()) ϱ e)
+unrestricted-val {TFun UU t₁ t₂} UFun (VFun (inj₂ unr-φ) ϱ e) = unrestricted-venv unr-φ ϱ 
 
--- type environment-indexed value environment
--- session context G describes the entire environment, it splits over all (channel) values
-data VEnv (G : SCtx) : TCtx → Set where
-  vnil : (ina : Inactive G) → VEnv G []
-  vcons : ∀{t φ G₁ G₂} → (ssp : SSplit G G₁ G₂) → (v : Val G₁ t) → (ϱ : VEnv G₂ φ) → VEnv G (t ∷ φ)
-
-unrestricted-venv : ∀ {φ G} → All Unr φ → VEnv G φ → Inactive G
 unrestricted-venv unr-φ (vnil ina) = ina
 unrestricted-venv (px ∷ unr-φ) (vcons ssp v ϱ) =
   ssplit-inactive ssp (unrestricted-val px v) (unrestricted-venv unr-φ ϱ)
@@ -252,9 +261,23 @@ run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp �
     dcont : (lab : Selector) → Cont Gi _ (TChan (selection lab s₁ s₂))
     dcont Left = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-left ϱ₂ κ
     dcont Right = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-rght ϱ₂ κ
-run f tsp ssp (ulambda sp unr-φ ebody) ϱ κ = {!!}
-run f tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ = {!!}
-run f tsp ssp (app sp efun earg) ϱ κ = {!!}
+run f tsp ssp (ulambda sp unr-φ unr-φ₃ ebody) ϱ κ with split-env sp ϱ
+... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₃ ϱ₂
+... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
+... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ₁ ebody) κ
+run f tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ with split-env sp ϱ
+... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₂ ϱ₂
+... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
+... | refl = Stopped ssp (VFun (inj₁ refl) ϱ₁ ebody) κ
+run f tsp ssp (app sp efun earg) ϱ κ with split-env sp ϱ
+... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ efun
+... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vfun with access ϱ₂ earg
+run{φ}{φ₁}{φ₂} f tsp ssp (app sp efun earg) ϱ κ | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , VFun{φ'} x ϱ₃ e | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , varg with ssplit-compose4 _ _ _ _ _ ss-gg ss-g2g5g6
+... | Gi , ss-g1-g5-gi , ss-gi-g1-g6 with ssplit-compose _ _ _ _ _ ssp ss-g1-g5-gi
+... | Gi₁ , ss-g-g5-gi1 , ss-gi1-gi-g2 with inactive-right-ssplit ss-g1g3g4 ina-G₄
+... | refl with inactive-right-ssplit ss-gi-g1-g6 ina-G₆
+... | refl with split-from-disjoint φ' φ₂
+... | φ₀ , sp' = Stopped ss-g-g5-gi1 varg (bind sp' ss-gi1-gi-g2 e ϱ₃ κ)
 
 apply-cont f ssp (halt-cont un-φ un-t ϱ) v with unrestricted-venv un-φ ϱ | unrestricted-val un-t v
 ... | inG1 | inG2 = Halt (ssplit-inactive ssp inG2 inG1)
@@ -270,12 +293,14 @@ extract-inactive-from-cont{G} un-t κ = ssplit-refl-right-inactive G
 -- lifting through a trivial extension
 
 lift-val : ∀ {G t} → Val G t → Val (nothing ∷ G) t
+lift-venv : ∀ {G φ} → VEnv G φ → VEnv (nothing ∷ G) φ
+
 lift-val (VUnit x) = VUnit (::-inactive _ x)
 lift-val (VInt i x) = VInt i (::-inactive _ x)
 lift-val (VPair x v v₁) = VPair (ss-both x) (lift-val v) (lift-val v₁)
 lift-val (VChan b vcr) = VChan b (there vcr)
+lift-val (VFun lu ϱ e) = VFun lu (lift-venv ϱ) e
 
-lift-venv : ∀ {G φ} → VEnv G φ → VEnv (nothing ∷ G) φ
 lift-venv (vnil ina) = vnil (::-inactive _ ina)
 lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
 

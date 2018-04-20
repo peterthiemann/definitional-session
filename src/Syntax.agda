@@ -86,7 +86,8 @@ data Expr : (φ : TCtx) → Ty → Set where
 
   ulambda : ∀ {φ φ₁ φ₂ t₁ t₂}
       → (sp : Split φ φ₁ φ₂)
-      → (unr-φ : All Unr φ)
+      → (unr-φ₁ : All Unr φ₁)
+      → (unr-φ₂ : All Unr φ₂)
       → (ebody : Expr (t₁ ∷ φ₁) t₂)
       → Expr φ (TFun UU t₁ t₂)
 
@@ -98,8 +99,8 @@ data Expr : (φ : TCtx) → Ty → Set where
 
   app : ∀ {φ φ₁ φ₂ lu t₁ t₂}
       → (sp : Split φ φ₁ φ₂)
-      → (efun : Expr φ₁ (TFun lu t₁ t₂))
-      → (earg : Expr φ₂ t₁)
+      → (xfun : TFun lu t₁ t₂ ∈ φ₁)
+      → (xarg : t₁ ∈ φ₂)
       → Expr φ t₂
 
 lift-expr : ∀ {φ t tᵤ} → Unr tᵤ → Expr φ t → Expr (tᵤ ∷ φ) t
@@ -116,6 +117,6 @@ lift-expr unrtu (send sp ch vv) = send (rght sp) ch (there unrtu vv)
 lift-expr unrtu (recv ch) = recv (there unrtu ch)
 lift-expr unrtu (select lab ch) = select lab (there unrtu ch)
 lift-expr unrtu (branch sp ch x₁ x₂) = branch (left sp) (there unrtu ch) x₁ x₂
-lift-expr unrtu (ulambda sp unr-φ ebody) = ulambda (rght sp) (unrtu ∷ unr-φ) ebody
+lift-expr unrtu (ulambda sp unr-φ unr-φ₂ ebody) = ulambda (rght sp) unr-φ (unrtu ∷ unr-φ₂) ebody
 lift-expr unrtu (llambda sp unr-φ₂ ebody) = llambda (rght sp) (unrtu ∷ unr-φ₂) ebody
-lift-expr unrtu (app sp efun earg) = app (rght sp) efun (lift-expr unrtu earg)
+lift-expr unrtu (app sp xfun xarg) = app (rght sp) xfun (there unrtu xarg)

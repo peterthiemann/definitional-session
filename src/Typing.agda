@@ -9,20 +9,22 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
 -- types and session types
-data LU : Set where
-  LL UU : LU
-
 mutual
+  -- linearity tag: linear / unrestricted
+  data LU : Set where
+    LL UU : LU
+
   data Ty : Set where
     TUnit TInt : Ty
     TPair : Ty → Ty → Ty
     TChan : STy → Ty
-    TFun : LU → Ty → Ty → Ty
+    TFun  : LU → Ty → Ty → Ty
 
   data STy : Set where
     SSend SRecv : (t : Ty) → STy → STy
     SIntern SExtern : (s₁ : STy) → (s₂ : STy) → STy
     SEnd! SEnd? : STy
+
 
 dual : STy → STy
 dual (SSend x s) = SRecv x (dual s)
@@ -56,6 +58,7 @@ data Unr : Ty → Set where
   UInt : Unr TInt
   UPair : ∀ {t₁ t₂} → Unr t₁ → Unr t₂ → Unr (TPair t₁ t₂)
   UFun :  ∀ {t₁ t₂} → Unr (TFun UU t₁ t₂)
+
 
 -- lin and unr are mutually exclusive
 lemma-lin-unr : ∀ {t} → Lin t → ¬ Unr t
@@ -120,7 +123,6 @@ classify-type (TChan x) = inj₁ LChan
 classify-type (TFun LL t₁ t₂) = inj₁ LFun
 classify-type (TFun UU t₁ t₂) = inj₂ UFun
 
-
 -- typing context
 TCtx : Set
 TCtx = List Ty
@@ -157,6 +159,15 @@ split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , left φ'-sp
 split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
+
+split-all-right : (φ : TCtx) → Split φ [] φ
+split-all-right [] = []
+split-all-right (x ∷ φ) = rght (split-all-right φ)
+
+split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
+split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
+split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
+... | φ' , sp = t ∷ φ' , left sp
 
 -- extract from type context where all other entries are unrestricted
 data _∈_ (x : Ty) : TCtx → Set where
