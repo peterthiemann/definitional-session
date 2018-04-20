@@ -66,3 +66,17 @@ ex4 =
   (branch (left (left [])) (there UUnit (here []))
           (wait (here []))
           (close (here [])))))
+
+-- simple lambda: (λx.x)()
+ex5 : Expr [] TUnit
+ex5 = letbind [] (llambda [] [] (var (here [])))
+      (letbind (rght []) (unit [])
+      (app (rght (left [])) (here []) (here [])))
+
+-- lambda app: (λfx.fx) (λx.x)()
+ex6 : Expr [] TUnit
+ex6 = letbind [] (llambda [] [] (llambda (left []) [] (app (rght (left [])) (here []) (here []))))
+      (letbind (rght []) (llambda [] [] (var (here [])))
+      (letbind (rght (rght [])) (unit [])
+      (letbind (rght (left (left []))) (app (rght (left [])) (here []) (here []))
+      (app (left (rght [])) (here []) (here [])))))

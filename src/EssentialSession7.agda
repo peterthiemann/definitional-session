@@ -214,6 +214,8 @@ run{G = G}{G₁ = G₁}{G₂ = G₂} f tsp ssp (var x) ϱ κ with access ϱ x
 ... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina = apply-cont f ssp κ v
 run f tsp ssp (nat unr-φ i) ϱ κ =
   apply-cont f ssp κ (VInt i (unrestricted-venv unr-φ ϱ))
+run f tsp ssp (unit unr-φ) ϱ κ =
+  apply-cont f ssp κ (VUnit (unrestricted-venv unr-φ ϱ))
 run{φ}{φ₁}{φ₂} f tsp ssp (letbind{.φ₁}{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
 ... | (G₁ , G₂) , ssp-G1G2 , ϱ₁ , ϱ₂ | φ' , tsp-φ' , φ'-tsp with ssplit-compose _ _ _ _ _ ssp ssp-G1G2
 ... | Gi , ssp-3i , ssp-42 =

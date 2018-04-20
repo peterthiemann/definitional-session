@@ -24,6 +24,10 @@ data Expr : (φ : TCtx) → Ty → Set where
       → (i : ℕ)
       → Expr φ TInt
 
+  unit : ∀ {φ}
+      → (unr-φ : All Unr φ)
+      → Expr φ TUnit
+
   letbind : ∀ {φ φ₁ φ₂ t₁ t₂}
     → (sp : Split φ φ₁ φ₂)
     → (e₁ : Expr φ₁ t₁)
@@ -106,6 +110,7 @@ data Expr : (φ : TCtx) → Ty → Set where
 lift-expr : ∀ {φ t tᵤ} → Unr tᵤ → Expr φ t → Expr (tᵤ ∷ φ) t
 lift-expr unrtu (var x) = var (there unrtu x)
 lift-expr unrtu (nat unr-φ i) = nat (unrtu ∷ unr-φ) i
+lift-expr unrtu (unit unr-φ) = unit (unrtu ∷ unr-φ)
 lift-expr unrtu (letbind sp e e₁) = letbind (left sp) (lift-expr unrtu e) e₁
 lift-expr unrtu (pair sp x₁ x₂) = pair (rght sp) x₁ (there unrtu x₂)
 lift-expr unrtu (letpair sp p e) = letpair (left sp) (there unrtu p) e
