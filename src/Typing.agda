@@ -160,6 +160,10 @@ split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
 split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
 
+split-all-left : (φ : TCtx) → Split φ φ []
+split-all-left [] = []
+split-all-left (x ∷ φ) = left (split-all-left φ)
+
 split-all-right : (φ : TCtx) → Split φ [] φ
 split-all-right [] = []
 split-all-right (x ∷ φ) = rght (split-all-right φ)
@@ -173,4 +177,12 @@ split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
 data _∈_ (x : Ty) : TCtx → Set where
   here  : ∀ { xs } → All Unr xs → x ∈ (x ∷ xs)
   there : ∀ { x₀ xs } → Unr x₀ → x ∈ xs → x ∈ (x₀ ∷ xs)
+
+-- left and right branching
+data Selector : Set where
+  Left Right : Selector
+
+selection : ∀ {A : Set} → Selector → A → A → A
+selection Left x y = x
+selection Right x y = y
 

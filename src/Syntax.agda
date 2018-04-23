@@ -6,13 +6,6 @@ open import Data.Nat
 
 open import Typing
 
-data Selector : Set where
-  Left Right : Selector
-
-selection : ∀ {A : Set} → Selector → A → A → A
-selection Left x y = x
-selection Right x y = y
-
 -- expressions
 data Expr : (φ : TCtx) → Ty → Set where
   var : ∀ {t φ}
