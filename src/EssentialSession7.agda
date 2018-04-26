@@ -183,6 +183,9 @@ run f tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₂ ϱ₂
 ... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
 ... | refl = Stopped ssp (VFun (inj₁ refl) ϱ₁ ebody) κ
+run{φ}{φ₁}{φ₂} f tsp ssp e@(rec unr-φ ebody) ϱ κ with unrestricted-venv unr-φ ϱ
+... | ina-G2' with inactive-right-ssplit (ssplit-sym ssp) ina-G2'
+... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ (unr-subst UFun (rght (split-all-unr unr-φ)) unr-φ e ebody)) κ
 run f tsp ssp (app sp efun earg) ϱ κ with split-env sp ϱ
 ... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ efun
 ... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vfun with access ϱ₂ earg

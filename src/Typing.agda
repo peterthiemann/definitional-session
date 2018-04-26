@@ -141,6 +141,13 @@ split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₁ x = φ' , unr-φ' , left sp'
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₂ y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
 
+-- split is symmetric
+split-sym : ∀ {φ φ₁ φ₂} → Split φ φ₁ φ₂ → Split φ φ₂ φ₁
+split-sym [] = []
+split-sym (unr x sp) = unr x (split-sym sp)
+split-sym (left sp) = rght (split-sym sp)
+split-sym (rght sp) = left (split-sym sp)
+
 -- reorganize splits
 split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
   → Split φ φ₁ φ₂ → Split φ₁ φ₁₁ φ₁₂ → Σ TCtx λ φ' → Split φ φ₁₁ φ' × Split φ' φ₁₂ φ₂
@@ -168,10 +175,20 @@ split-all-right : (φ : TCtx) → Split φ [] φ
 split-all-right [] = []
 split-all-right (x ∷ φ) = rght (split-all-right φ)
 
+split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
+split-all-unr [] = []
+split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
+
 split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
 split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
 split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
 ... | φ' , sp = t ∷ φ' , left sp
+
+split-unr : ∀ {φ φ₁ φ₂} → (sp : Split φ φ₁ φ₂) → All Unr φ₁ → All Unr φ₂ → All Unr φ
+split-unr [] [] [] = []
+split-unr (unr x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
+split-unr (left sp) (px ∷ unr1) unr2 = px ∷ split-unr sp unr1 unr2
+split-unr (rght sp) unr1 (px ∷ unr2) = px ∷ split-unr sp unr1 unr2
 
 -- extract from type context where all other entries are unrestricted
 data _∈_ (x : Ty) : TCtx → Set where
