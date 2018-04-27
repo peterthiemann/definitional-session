@@ -1,4 +1,4 @@
-module EssentialSession7 where
+module Session where
 
 open import Data.Bool
 open import Data.Empty
@@ -29,12 +29,7 @@ mutual
       → (un-t : Unr t)
       → (ϱ : VEnv G φ)
       → Cont G φ t
-  {-
-    cont : 
-      (ϱ : VEnv G φ)
-      → (c : ∀ {G' Gx} → SSplit G' Gx G → Val Gx t → VEnv G φ →  Command G')
-      → Cont G φ t
-  -}
+
     bind : ∀ { φ₁ φ₂ G₁ G₂ t₂}
       → (ts : Split φ φ₁ φ₂)
       → (ss : SSplit G G₁ G₂)
@@ -62,7 +57,8 @@ mutual
       → Command G
     New : ∀ {φ}
       → (s : STy)
-      → (κ : Cont G φ (TPair (TChan s) (TChan (dual s))))
+      → let s₁ = unroll s in
+        (κ : Cont G φ (TPair (TChan s₁) (TChan (dual₁ s₁))))
       → Command G
     Close : ∀ {φ G₁ G₂}
       → (ss : SSplit G G₁ G₂)
@@ -79,23 +75,23 @@ mutual
       → (ss-args : SSplit G₁ G₁₁ G₁₂)
       → (vch : Val G₁₁ (TChan (SSend t s)))
       → (v : Val G₁₂ t)
-      → (κ : Cont G₂ φ (TChan s))
+      → (κ : Cont G₂ φ (TChan (unroll s)))
       → Command G
     Recv : ∀ {φ G₁ G₂ t s}
       → (ss : SSplit G G₁ G₂)
       → (vch : Val G₁ (TChan (SRecv t s)))
-      → (κ : Cont G₂ φ (TPair (TChan s) t))
+      → (κ : Cont G₂ φ (TPair (TChan (unroll s)) t))
       → Command G
     Select : ∀ {φ G₁ G₂ s₁ s₂}
       → (ss : SSplit G G₁ G₂)
       → (lab : Selector)
       → (vch : Val G₁ (TChan (SIntern s₁ s₂)))
-      → (κ : Cont G₂ φ (TChan (selection lab s₁ s₂)))
+      → (κ : Cont G₂ φ (TChan (selection lab (unroll s₁) (unroll s₂))))
       → Command G
     Branch : ∀ {φ G₁ G₂ s₁ s₂}
       → (ss : SSplit G G₁ G₂)
       → (vch : Val G₁ (TChan (SExtern s₁ s₂)))
-      → (dcont : (lab : Selector) → Cont G₂ φ (TChan (selection lab s₁ s₂)))
+      → (dcont : (lab : Selector) → Cont G₂ φ (TChan (selection lab (unroll s₁) (unroll s₂))))
       → Command G
       
 -- 
@@ -172,7 +168,7 @@ run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp �
 ... | φ' , sp-φφ1φ' , sp-φ'φ3φ4 with inactive-right-ssplit ss-vi ina-G₂
 ... | refl = Branch ss-G-G1'Gi vch dcont
   where
-    dcont : (lab : Selector) → Cont Gi _ (TChan (selection lab s₁ s₂))
+    dcont : (lab : Selector) → Cont Gi _ (TChan (selection lab (unroll s₁) (unroll s₂)))
     dcont Left = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-left ϱ₂ κ
     dcont Right = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-rght ϱ₂ κ
 run f tsp ssp (ulambda sp unr-φ unr-φ₃ ebody) ϱ κ with split-env sp ϱ
@@ -308,7 +304,7 @@ matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (
 matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
   → SSplit G Gc Gtp
   -- read command
-  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (SRecv t s)) × Cont Gc₂ φ (TPair (TChan s) t)
+  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (SRecv t s)) × Cont Gc₂ φ (TPair (TChan (unroll s)) t)
   -- focused thread pool
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (Σ SCtx λ G' → ThreadPool G')
@@ -348,7 +344,7 @@ matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons
 matchBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ s₁ s₂}
   → SSplit G Gc Gtp
   -- select command
-  → (SSplit Gc Gc₁ Gc₂ × Σ Selector λ lab → Val Gc₁ (TChan (SIntern s₁ s₂)) × Cont Gc₂ φ (TChan (selection lab s₁ s₂)))
+  → (SSplit Gc Gc₁ Gc₂ × Σ Selector λ lab → Val Gc₁ (TChan (SIntern s₁ s₂)) × Cont Gc₂ φ (TChan (selection lab (unroll s₁) (unroll s₂))))
   -- focused thread pool
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (Σ SCtx λ G' → ThreadPool G')
@@ -402,7 +398,7 @@ schedule (More f) G (tcons ss (Halt inaG) tp) | tp' | refl = schedule f G tp'
 schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | Gi , ss-GiG1 with ssplit-inactive-right ss-GiG1
 ... | ina-Gi =
-  schedule f (just (s , POSNEG) ∷ G)
+  schedule f (just (unroll s , POSNEG) ∷ G)
     (tcons (ss-left ss)
            (apply-cont f (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi)) (VChan false (here-neg ina-Gi))))
            (lift-threadpool tp))

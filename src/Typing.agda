@@ -1,8 +1,10 @@
 module Typing where
 
 open import Data.Bool
+open import Data.Fin hiding (_+_)
 open import Data.List
 open import Data.List.All
+open import Data.Nat
 open import Data.Product
 open import Data.Sum
 open import Relation.Nullary
@@ -17,34 +19,126 @@ mutual
   data Ty : Set where
     TUnit TInt : Ty
     TPair : Ty → Ty → Ty
-    TChan : STy → Ty
+    TChan : STy₁ 0 → Ty
     TFun  : LU → Ty → Ty → Ty
 
-  data STy : Set where
-    SSend SRecv : (t : Ty) → STy → STy
-    SIntern SExtern : (s₁ : STy) → (s₂ : STy) → STy
-    SEnd! SEnd? : STy
+  data STy₀ (n : ℕ) : Set where
+    S1 : (s1 : STy₁ n) → STy₀ n
+    SMu : (s1 : STy₁ (suc n)) → STy₀ n
+    SVar : (i : Fin n) → STy₀ n
 
+  data STy₁ (n : ℕ) : Set where
+    SSend SRecv : (t : Ty) → (s : STy₀ n) → STy₁ n
+    SIntern SExtern : (s₁ : STy₀ n) → (s₂ : STy₀ n) → STy₁ n
+    SEnd! SEnd? : STy₁ n
 
-dual : STy → STy
-dual (SSend x s) = SRecv x (dual s)
-dual (SRecv x s) = SSend x (dual s)
-dual (SIntern s₁ s₂) = SExtern (dual s₁) (dual s₂)
-dual (SExtern s₁ s₂) = SIntern (dual s₁) (dual s₂)
-dual SEnd! = SEnd?
-dual SEnd? = SEnd!
+  STy = STy₀ 0
 
-dual-involution : (s : STy) → dual (dual s) ≡ s
-dual-involution (SSend x s) rewrite dual-involution s = refl
-dual-involution (SRecv x s) rewrite dual-involution s = refl
-dual-involution (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
-dual-involution (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
-dual-involution SEnd! = refl
-dual-involution SEnd? = refl
+slift : ∀ {m} → STy₀ m → STy₀ (suc m)
+slift₁ : ∀ {m} → STy₁ m → STy₁ (suc m)
 
-xdual : Bool → STy → STy
+slift (S1 s1) = S1 (slift₁ s1)
+slift (SMu s1) = SMu (slift₁ s1)
+slift (SVar i) = SVar (suc i)
+
+slift₁ (SSend t s) = SSend t (slift s)
+slift₁ (SRecv t s) = SRecv t (slift s)
+slift₁ (SIntern s₁ s₂) = SIntern (slift s₁) (slift s₂)
+slift₁ (SExtern s₁ s₂) = SExtern (slift s₁) (slift s₂)
+slift₁ SEnd! = SEnd!
+slift₁ SEnd? = SEnd?
+
+ssubst : ∀ {m n} → STy₀ n → STy₀ (m + suc n) → STy₀ (m + n)
+ssubst₁ : ∀ {m n} → STy₀ n → STy₁ (m + suc n) → STy₁ (m + n)
+
+ssubst₁ {m} s (SSend t s₁) = SSend t (ssubst {m} s s₁)
+ssubst₁ {m} s (SRecv t s₁) = SRecv t (ssubst {m} s s₁)
+ssubst₁ {m} s (SIntern s₁ s₂) = SIntern (ssubst {m} s s₁) (ssubst {m} s s₂)
+ssubst₁ {m} s (SExtern s₁ s₂) = SExtern (ssubst {m} s s₁) (ssubst {m} s s₂)
+ssubst₁ s SEnd! = SEnd!
+ssubst₁ s SEnd? = SEnd?
+
+ssubst {m} s (S1 s1) = S1 (ssubst₁ {m} s s1)
+ssubst {m} s (SMu s1) = SMu (ssubst₁ { suc m } s s1)
+ssubst {zero} s (SVar zero) = s
+ssubst {zero} s (SVar (suc i)) = SVar i
+ssubst {suc m} s (SVar zero) = SVar zero
+ssubst {suc m} s (SVar (suc i)) = slift (ssubst {m} s (SVar i))
+
+unroll : STy₀ 0 → STy₁ 0
+unroll (S1 s1) = s1
+unroll s@(SMu s1) = ssubst₁ {0} s s1
+unroll (SVar ())
+
+dual : ∀ {n} → STy₀ n → STy₀ n
+dual₁ : ∀ {n} → STy₁ n → STy₁ n
+
+dual₁ (SSend x s) = SRecv x (dual s)
+dual₁ (SRecv x s) = SSend x (dual s)
+dual₁ (SIntern s₁ s₂) = SExtern (dual s₁) (dual s₂)
+dual₁ (SExtern s₁ s₂) = SIntern (dual s₁) (dual s₂)
+dual₁ SEnd! = SEnd?
+dual₁ SEnd? = SEnd!
+
+dual (S1 x) = S1 (dual₁ x)
+dual (SMu x) = SMu (dual₁ x)
+dual (SVar x) = SVar x
+
+dual-involution₁ : ∀ {n} → (s : STy₁ n) → dual₁ (dual₁ s) ≡ s
+dual-involution : ∀ {n} → (s : STy₀ n) → dual (dual s) ≡ s
+
+dual-involution₁ (SSend x s) rewrite dual-involution s = refl
+dual-involution₁ (SRecv x s) rewrite dual-involution s = refl
+dual-involution₁ (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
+dual-involution₁ (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
+dual-involution₁ SEnd! = refl
+dual-involution₁ SEnd? = refl
+
+dual-involution (S1 s) rewrite dual-involution₁ s = refl
+dual-involution (SMu s) rewrite dual-involution₁ s = refl
+dual-involution (SVar i) = refl
+
+xdual : ∀ {n} → Bool → STy₀ n → STy₀ n
 xdual false s = dual s
 xdual true s = s
+
+slift-dual : ∀ {n} (s : STy₀ n) → dual (slift s) ≡ slift (dual s)
+slift-dual₁ : ∀ {n} (s : STy₁ n) → dual₁ (slift₁ s) ≡ slift₁ (dual₁ s)
+
+slift-dual (S1 s1) = cong S1 (slift-dual₁ s1)
+slift-dual (SMu s1) = cong SMu (slift-dual₁ s1)
+slift-dual (SVar i) = refl
+
+slift-dual₁ (SSend t s) = cong (SRecv t) (slift-dual s)
+slift-dual₁ (SRecv t s) = cong (SSend t) (slift-dual s)
+slift-dual₁ (SIntern s₁ s₂) = cong₂ SExtern (slift-dual s₁) (slift-dual s₂)
+slift-dual₁ (SExtern s₁ s₂) = cong₂ SIntern (slift-dual s₁) (slift-dual s₂)
+slift-dual₁ SEnd! = refl
+slift-dual₁ SEnd? = refl
+
+ssubst-dual₁ : ∀ {n} → (s1 : STy₁ 1) (s2 : STy₁ (n + 1))
+  → dual₁ (ssubst₁ {n} (SMu s1) s2) ≡ ssubst₁ {n} (SMu (dual₁ s1)) (dual₁ s2)
+ssubst-dual : ∀ {n} → (s1 : STy₁ 1) (s2 : STy₀ (n + 1))
+  → dual (ssubst {n} (SMu s1) s2) ≡ ssubst {n} (SMu (dual₁ s1)) (dual s2)
+
+ssubst-dual₁ {n} s1 (SSend t s) = cong (SRecv t) (ssubst-dual {n} s1 s)
+ssubst-dual₁ {n} s1 (SRecv t s) = cong (SSend t) (ssubst-dual {n} s1 s)
+ssubst-dual₁ {n} s1 (SIntern s₁ s₂) = cong₂ SExtern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
+ssubst-dual₁ {n} s1 (SExtern s₁ s₂) = cong₂ SIntern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
+ssubst-dual₁ s1 SEnd! = refl
+ssubst-dual₁ s1 SEnd? = refl
+
+ssubst-dual {n} s1 (S1 s2) = cong S1 (ssubst-dual₁ {n} s1 s2)
+ssubst-dual {n} s1 (SMu s2) = cong SMu (ssubst-dual₁ s1 s2)
+ssubst-dual {zero} s1 (SVar zero) = refl
+ssubst-dual {zero} s1 (SVar (suc i)) = refl
+ssubst-dual {suc n} s1 (SVar zero) = refl
+ssubst-dual {suc n} s1 (SVar (suc i)) rewrite slift-dual (ssubst {n} (SMu s1) (SVar i)) = cong slift (ssubst-dual {n} s1 (SVar i))
+
+unroll-dual : (s : STy₀ 0) → dual₁ (unroll s) ≡ unroll (dual s)
+unroll-dual (S1 s1) = refl
+unroll-dual (SMu s1) = ssubst-dual₁ s1 s1
+unroll-dual (SVar ())
 
 -- linear and unrestricted types
 data Lin : Ty → Set where

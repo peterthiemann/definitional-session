@@ -39,18 +39,19 @@ data DExpr :  (φ : TCtx) → Ty → Set where
   new : ∀ {φ}
       → (unr-φ : All Unr φ)
       → (s : STy)
-      → DExpr φ (TPair (TChan s) (TChan (dual s)))
+      → let s₁ = unroll s in
+        DExpr φ (TPair (TChan s₁) (TChan (dual₁ s₁)))
 
   -- takes only variables to avoid extraneous effects
   send : ∀ {φ φ₁ φ₂ s t}
       → (sp : Split φ φ₁ φ₂)
       → (ech : DExpr φ₁ (TChan (SSend t s)))
       → (earg : DExpr φ₂ t)
-      → DExpr φ (TChan s)
+      → DExpr φ (TChan (unroll s))
   -- takes only variables to avoid extraneous effects
   recv : ∀ {φ s t}
       → (ech : DExpr φ (TChan (SRecv t s)))
-      → DExpr φ (TPair (TChan s) t)
+      → DExpr φ (TPair (TChan (unroll s)) t)
 
   close : ∀ {φ}
       → (ech : DExpr φ (TChan SEnd!))
@@ -63,15 +64,15 @@ data DExpr :  (φ : TCtx) → Ty → Set where
   select : ∀ {s₁ s₂ φ}
       → (lab : Selector)
       → (ech : DExpr φ (TChan (SIntern s₁ s₂)))
-      → DExpr φ (TChan (selection lab s₁ s₂))
+      → DExpr φ (TChan (selection lab (unroll s₁) (unroll s₂)))
 
   -- potential problem: if both branches return a channel, this typing does not require that it's the *same* channel
   -- later on in the semantic model, there may be a mismatch in the resources returned by the branches
   branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
       → (ech : DExpr φ₁ (TChan (SExtern s₁ s₂)))
-      → (eleft : DExpr (TChan s₁ ∷ φ₂) t)
-      → (erght : DExpr (TChan s₂ ∷ φ₂) t)
+      → (eleft : DExpr (TChan (unroll s₁) ∷ φ₂) t)
+      → (erght : DExpr (TChan (unroll s₂) ∷ φ₂) t)
       → DExpr φ t
 
   ulambda : ∀ {φ t₁ t₂}

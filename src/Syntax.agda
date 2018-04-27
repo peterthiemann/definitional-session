@@ -1,4 +1,3 @@
-{-----# OPTIONS --allow-unsolved-metas #-}
 module Syntax where
 
 open import Data.List hiding (reverse)
@@ -48,18 +47,21 @@ data Expr : (φ : TCtx) → Ty → Set where
   new : ∀ {φ}
       → (unr-φ : All Unr φ)
       → (s : STy)
-      → Expr φ (TPair (TChan s) (TChan (dual s)))
+      → let s₁ = unroll s in
+        Expr φ (TPair (TChan s₁) (TChan (dual₁ s₁)))
 
   -- takes only variables to avoid extraneous effects
   send : ∀ {φ φ₁ φ₂ s t}
       → (sp : Split φ φ₁ φ₂)
       → (ch : (TChan (SSend t s)) ∈ φ₁)
       → (vv : t ∈ φ₂)
-      → Expr φ (TChan s)
+      → let s₁ = unroll s in
+        Expr φ (TChan s₁)
   -- takes only variables to avoid extraneous effects
   recv : ∀ {φ s t}
       → (ch : (TChan (SRecv t s)) ∈ φ)
-      → Expr φ (TPair (TChan s) t)
+      → let s₁ = unroll s in
+        Expr φ (TPair (TChan s₁) t)
 
   close : ∀ { φ}
       → (ch : TChan SEnd! ∈ φ)
@@ -72,15 +74,17 @@ data Expr : (φ : TCtx) → Ty → Set where
   select : ∀ {s₁ s₂ φ}
       → (lab : Selector)
       → (ch : TChan (SIntern s₁ s₂) ∈ φ)
-      → Expr φ (TChan (selection lab s₁ s₂))
+      → let s₁' = unroll s₁
+            s₂' = unroll s₂ in
+        Expr φ (TChan (selection lab s₁' s₂'))
 
   -- potential problem: if both branches return a channel, this typing does not require that it's the *same* channel
   -- later on in the semantic model, there may be a mismatch in the resources returned by the branches
   branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
       → (ch : TChan (SExtern s₁ s₂) ∈ φ₁)
-      → (eleft : Expr (TChan s₁ ∷ φ₂) t)
-      → (erght : Expr (TChan s₂ ∷ φ₂) t)
+      → (eleft : Expr (TChan (unroll s₁) ∷ φ₂) t)
+      → (erght : Expr (TChan (unroll s₂) ∷ φ₂) t)
       → Expr φ t
 
   ulambda : ∀ {φ φ₁ φ₂ t₁ t₂}
