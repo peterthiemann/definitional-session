@@ -9,7 +9,7 @@ open import Syntax
 
 ex1 : Expr [] TUnit
 ex1 =
-  letbind [] (new [] SEnd!)
+  letbind [] (new [] (S1 SEnd!))
   (letpair (left []) (here [])
   (letbind (rght (left []))
            (fork (wait (here [])))
@@ -17,7 +17,7 @@ ex1 =
 
 ex1dual : Expr [] TUnit
 ex1dual =
-  letbind [] (new [] SEnd!)
+  letbind [] (new [] (S1 SEnd!))
   (letpair (left []) (here [])
   (letbind (left (rght []))
            (fork (close (here [])))
@@ -26,7 +26,7 @@ ex1dual =
 -- sending and receiving
 ex2 : Expr [] TUnit
 ex2 =
-  letbind [] (new [] (SSend TInt SEnd!))
+  letbind [] (new [] (S1 (SSend TInt (S1 SEnd!))))
   (letpair (left []) (here [])
   (letbind (left (rght []))
            (fork (letbind (rght []) (nat [] 42)
@@ -41,8 +41,8 @@ ex2 =
 -- higher order sending and receiving
 ex3 : Expr [] TUnit
 ex3 =
-  letbind [] (new [] (SSend (TChan SEnd!) SEnd!))
-  (letbind (rght []) (new [] SEnd!)
+  letbind [] (new [] (S1 (SSend (TChan SEnd!) (S1 SEnd!))))
+  (letbind (rght []) (new [] (S1 SEnd!))
   (letpair (left (rght [])) (here [])
   (letpair (rght (rght (left []))) (here [])
   (letbind (left (rght (left (left []))))
@@ -58,7 +58,7 @@ ex3 =
 -- branching
 ex4 : Expr [] TUnit
 ex4 =
-  letbind [] (new [] (SIntern SEnd! SEnd?))
+  letbind [] (new [] (S1 (SIntern (S1 SEnd!) (S1 SEnd?))))
   (letpair (left []) (here [])
   (letbind (left (rght []))
            (fork (letbind (left []) (select Left (here []))
