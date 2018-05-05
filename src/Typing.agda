@@ -10,6 +10,9 @@ open import Data.Sum
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
+-- only used finitary for (Fin m → A)
+postulate ext : ∀ {a b} → Extensionality a b
+
 -- types and session types
 mutual
   -- linearity tag: linear / unrestricted
@@ -30,6 +33,7 @@ mutual
   data STy₁ (n : ℕ) : Set where
     SSend SRecv : (t : Ty) → (s : STy₀ n) → STy₁ n
     SIntern SExtern : (s₁ : STy₀ n) → (s₂ : STy₀ n) → STy₁ n
+    SIntN SExtN : (m : ℕ) (alt : Fin m → STy₀ n) → STy₁ n
     SEnd! SEnd? : STy₁ n
 
   STy = STy₀ 0
@@ -45,6 +49,8 @@ slift₁ (SSend t s) = SSend t (slift s)
 slift₁ (SRecv t s) = SRecv t (slift s)
 slift₁ (SIntern s₁ s₂) = SIntern (slift s₁) (slift s₂)
 slift₁ (SExtern s₁ s₂) = SExtern (slift s₁) (slift s₂)
+slift₁ (SIntN m alt) = SIntN m λ x → slift (alt x)
+slift₁ (SExtN m alt) = SExtN m λ x → slift (alt x)
 slift₁ SEnd! = SEnd!
 slift₁ SEnd? = SEnd?
 
@@ -55,6 +61,8 @@ ssubst₁ {m} s (SSend t s₁) = SSend t (ssubst {m} s s₁)
 ssubst₁ {m} s (SRecv t s₁) = SRecv t (ssubst {m} s s₁)
 ssubst₁ {m} s (SIntern s₁ s₂) = SIntern (ssubst {m} s s₁) (ssubst {m} s s₂)
 ssubst₁ {m} s (SExtern s₁ s₂) = SExtern (ssubst {m} s s₁) (ssubst {m} s s₂)
+ssubst₁ {m} s (SIntN m' alt) = SIntN m' λ x → ssubst {m} s (alt x)
+ssubst₁ {m} s (SExtN m' alt) = SExtN m' λ x → ssubst {m} s (alt x)
 ssubst₁ s SEnd! = SEnd!
 ssubst₁ s SEnd? = SEnd?
 
@@ -77,6 +85,8 @@ dual₁ (SSend x s) = SRecv x (dual s)
 dual₁ (SRecv x s) = SSend x (dual s)
 dual₁ (SIntern s₁ s₂) = SExtern (dual s₁) (dual s₂)
 dual₁ (SExtern s₁ s₂) = SIntern (dual s₁) (dual s₂)
+dual₁ (SIntN m alt) = SExtN m λ x → dual (alt x)
+dual₁ (SExtN m alt) = SIntN m λ x → dual (alt x)
 dual₁ SEnd! = SEnd?
 dual₁ SEnd? = SEnd!
 
@@ -91,6 +101,8 @@ dual-involution₁ (SSend x s) rewrite dual-involution s = refl
 dual-involution₁ (SRecv x s) rewrite dual-involution s = refl
 dual-involution₁ (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
 dual-involution₁ (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
+dual-involution₁ (SIntN m alt) = cong (SIntN m) (ext λ x → dual-involution (alt x))
+dual-involution₁ (SExtN m alt) = cong (SExtN m) (ext λ x → dual-involution (alt x))
 dual-involution₁ SEnd! = refl
 dual-involution₁ SEnd? = refl
 
@@ -113,6 +125,8 @@ slift-dual₁ (SSend t s) = cong (SRecv t) (slift-dual s)
 slift-dual₁ (SRecv t s) = cong (SSend t) (slift-dual s)
 slift-dual₁ (SIntern s₁ s₂) = cong₂ SExtern (slift-dual s₁) (slift-dual s₂)
 slift-dual₁ (SExtern s₁ s₂) = cong₂ SIntern (slift-dual s₁) (slift-dual s₂)
+slift-dual₁ (SIntN m alt) = cong (SExtN m) (ext λ x → slift-dual (alt x))
+slift-dual₁ (SExtN m alt) = cong (SIntN m) (ext λ x → slift-dual (alt x))
 slift-dual₁ SEnd! = refl
 slift-dual₁ SEnd? = refl
 
@@ -125,6 +139,8 @@ ssubst-dual₁ {n} s1 (SSend t s) = cong (SRecv t) (ssubst-dual {n} s1 s)
 ssubst-dual₁ {n} s1 (SRecv t s) = cong (SSend t) (ssubst-dual {n} s1 s)
 ssubst-dual₁ {n} s1 (SIntern s₁ s₂) = cong₂ SExtern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
 ssubst-dual₁ {n} s1 (SExtern s₁ s₂) = cong₂ SIntern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
+ssubst-dual₁ {n} s1 (SIntN m alt) = cong (SExtN m) (ext λ x → ssubst-dual {n} s1 (alt x))
+ssubst-dual₁ {n} s1 (SExtN m alt) = cong (SIntN m) (ext λ x → ssubst-dual {n} s1 (alt x))
 ssubst-dual₁ s1 SEnd! = refl
 ssubst-dual₁ s1 SEnd? = refl
 
