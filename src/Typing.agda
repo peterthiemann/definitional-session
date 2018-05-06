@@ -97,8 +97,8 @@ dual (SVar x) = SVar x
 dual-involution₁ : ∀ {n} → (s : STy₁ n) → dual₁ (dual₁ s) ≡ s
 dual-involution : ∀ {n} → (s : STy₀ n) → dual (dual s) ≡ s
 
-dual-involution₁ (SSend x s) rewrite dual-involution s = refl
-dual-involution₁ (SRecv x s) rewrite dual-involution s = refl
+dual-involution₁ (SSend x s) = cong (SSend x) (dual-involution s)
+dual-involution₁ (SRecv x s) = cong (SRecv x) (dual-involution s)
 dual-involution₁ (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
 dual-involution₁ (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
 dual-involution₁ (SIntN m alt) = cong (SIntN m) (ext λ x → dual-involution (alt x))
@@ -106,8 +106,8 @@ dual-involution₁ (SExtN m alt) = cong (SExtN m) (ext λ x → dual-involution 
 dual-involution₁ SEnd! = refl
 dual-involution₁ SEnd? = refl
 
-dual-involution (S1 s) rewrite dual-involution₁ s = refl
-dual-involution (SMu s) rewrite dual-involution₁ s = refl
+dual-involution (S1 s) = cong S1 (dual-involution₁ s)
+dual-involution (SMu s) = cong SMu (dual-involution₁ s)
 dual-involution (SVar i) = refl
 
 xdual : ∀ {n} → Bool → STy₀ n → STy₀ n
