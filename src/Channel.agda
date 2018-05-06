@@ -86,128 +86,57 @@ vcr-match-2-sr : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁ s₂ t₁ t₂}
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
           ValidChannelRef G₁₁' b₁ (unroll s₁) ×
           ValidChannelRef G₁₂' b₂ (unroll s₂))
-vcr-match-2-sr (ssplit2 ss-[] ss-[]) () vcr-send
-vcr-match-2-sr (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) with vcr-match-2-sr (ssplit2 ss1 ss2) vcr-recv vcr-send
-vcr-match-2-sr (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , GG' , GG1' , GG11' , GG12' , ssplit2 ss3 ss4 , vcr-recv' , vcr-send') = just (t1=t2 , ds1=s2 , _ , _ , _ , _ , ssplit2 (ss-both ss3) (ss-both ss4) ,  there vcr-recv' , there vcr-send')
-vcr-match-2-sr (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | nothing = nothing
-vcr-match-2-sr {G₁ = just (.(SRecv _ _) , POS) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-pos ina-G) (there vcr-send) = nothing
-vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-send) = nothing
-vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
-vcr-match-2-sr {G₁ = just (.(SSend _ _) , POS) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) (here-pos ina-G) = nothing
-vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) (here-neg ina-G) = nothing
-vcr-match-2-sr {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {s₁ = s₁} (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G) (here-neg ina-G₁) rewrite sym (unroll-dual s₁) = just (refl , (refl , (_ , _ , _ , _ , (ssplit2 (ss-left ss1) (ss-posneg ss2)) , ((here-pos ina-G) , here-neg ina-G₁))))
-vcr-match-2-sr {G₁ = just (SSend t s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) (here-neg ina-G) (here-pos ina-G₁) rewrite sym (unroll-dual s) = just (refl , dual-involution _ , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-negpos ss2) , here-neg ina-G , here-pos ina-G₁)
-vcr-match-2-sr {G₁ = just (SRecv t s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SIntern s s₁ , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SExtern s s₁ , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SEnd! , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SEnd? , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-send
-vcr-match-2-sr (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) with vcr-match-2-sr (ssplit2 ss1 ss2) vcr-recv vcr-send
-vcr-match-2-sr (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | just  (t1=t2 , ds1=s2 , GG' , GG1' , GG11' , GG12' , ssplit2 ss3 ss4 , vcr-recv' , vcr-send') = just (t1=t2 , ds1=s2 , _ , _ , _ , _ , ssplit2 (ss-right ss3) (ss-both ss4) , there vcr-recv' , there vcr-send')
-vcr-match-2-sr (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | nothing = nothing
-vcr-match-2-sr (ssplit2 (ss-posneg ss1) (ss-left ss2)) (here-pos ina-G) (there vcr-send) = nothing
-vcr-match-2-sr (ssplit2 (ss-posneg ss1) (ss-right ss2)) (there vcr-recv) (here-pos ina-G) = nothing
-vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-send) = nothing
-vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-send
-vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) (here-neg ina-G) = nothing
-vcr-match-2-sr {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
-vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = .[]} (ssplit2 ss-[] ss-[]) () vcr-send
+vcr-match-2-sr {G₁ = .(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) with vcr-match-2-sr (ssplit2 ss1 ss2) vcr-recv vcr-send
+vcr-match-2-sr {_} {.(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | nothing = nothing
+vcr-match-2-sr {_} {.(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-recv' , vcr-send') = just (t1=t2 , ds1=s2 , _ , _ , _ , _ , ssplit2 (ss-both ss1') (ss-both ss2') , there vcr-recv' , there vcr-send')
 
--- -- ok. brute force for a fixed tree with three levels
--- data SSplit3 (G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂ : SCtx) : Set where
---   ssplit3 : 
---     (ss1 : SSplit G G₁ G₂)
---     → (ss2 : SSplit G₁ G₁₁ G₁₂)
---     → (ss3 : SSplit G₁₁ G₁₁₁ G₁₁₂)
---     → SSplit3 G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂
+vcr-match-2-sr {G₁ = just (.(SRecv _ _) , POS) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-pos ina-G) (there vcr-send) = nothing
+vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-send) = nothing
+vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SIntern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SExtern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SIntN m alt , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SExtN m alt , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (s , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-send
 
--- ss3-both : ∀ {G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂}
---   → SSplit3 G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂
---   → SSplit3 (nothing ∷ G) (nothing ∷ G₁) (nothing ∷  G₂) (nothing ∷  G₁₁) (nothing ∷  G₁₂) (nothing ∷  G₁₁₁) (nothing ∷  G₁₁₂)
--- ss3-both (ssplit3 ss1 ss2 ss3) = ssplit3 (ss-both ss1) (ss-both ss2) (ss-both ss3)
+vcr-match-2-sr {G₁ = just (.(SSend _ _) , POS) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) (here-pos ina-G) = nothing
+vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) (here-neg ina-G) = nothing
+vcr-match-2-sr {G₁ = just (SIntern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SExtern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SIntN m alt , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SExtN m alt , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (s , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = .(just (SRecv _ _ , POSNEG) ∷ _)} {s₁ = s₁} (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G) (here-neg ina-G₁) rewrite sym (unroll-dual s₁) = just (refl , refl , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-posneg ss2) , here-pos ina-G , here-neg ina-G₁)
+vcr-match-2-sr {G₁ = (just (SSend _ s , POSNEG) ∷ _)} (ssplit2 (ss-left ss1) (ss-negpos ss2)) (here-neg ina-G₁) (here-pos ina-G) rewrite sym (unroll-dual s) = just (refl , dual-involution _ , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-negpos ss2) , here-neg ina-G₁ , here-pos ina-G)
+vcr-match-2-sr {G₁ = .(nothing ∷ _)} (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) with vcr-match-2-sr (ssplit2 ss1 ss2) vcr-recv vcr-send
+vcr-match-2-sr {_} {.(nothing ∷ _)} (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | nothing = nothing
+vcr-match-2-sr {_} {.(nothing ∷ _)} (ssplit2 (ss-right ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-recv' , vcr-send') = just (t1=t2 , ds1=s2 , _ , _ , _ , _ , ssplit2 (ss-right ss1') (ss-both ss2') , there vcr-recv' , there vcr-send')
 
--- vcr-match-3-sr : ∀ {G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂ b₁ b₂ s₁ s₂ t₁ t₂}
---   → SSplit3 G G₁ G₂ G₁₁ G₁₂ G₁₁₁ G₁₁₂
---   → ValidChannelRef G₁₁₁ b₁ (SRecv t₁ s₁)
---   → ValidChannelRef G₁₁₂ b₂ (SSend t₂ s₂)
---   → Maybe (t₁ ≡ t₂ ×
---           dual s₁ ≡ s₂ ×
---           Σ SCtx λ G' → Σ SCtx λ G₁' → Σ SCtx λ G₁₁' →
---           Σ SCtx λ G₁₁₁' → Σ SCtx λ G₁₁₂' →
---           SSplit3 G' G₁' G₂ G₁₁' G₁₂ G₁₁₁' G₁₁₂' ×
---           ValidChannelRef G₁₁₁' b₁ s₁ ×
---           ValidChannelRef G₁₁₂' b₂ s₂)
--- vcr-match-3-sr (ssplit3 ss-[] ss-[] ss-[]) () vcr-send
--- vcr-match-3-sr (ssplit3 (ss-both ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) with vcr-match-3-sr (ssplit3 ss1 ss2 ss3) vcr-recv vcr-send
--- vcr-match-3-sr (ssplit3 (ss-both ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₁₁' , G₁₁₂' , ss3' , vcr-recv' , vcr-send') = just (t1=t2 , (ds1=s2 , (nothing ∷ G' , (nothing ∷ G₁') , ((nothing ∷ G₁₁') , ((nothing ∷ G₁₁₁') , ((nothing ∷ G₁₁₂') , (ss3-both ss3') , ((there vcr-recv') , (there vcr-send'))))))))
--- vcr-match-3-sr (ssplit3 (ss-both ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | nothing = nothing
--- vcr-match-3-sr {G₁₁ = just (.(SRecv _ _) , POS) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) (here-pos ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) (here-neg ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (s , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-left ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (.(SSend _ _) , POS) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) (here-pos ina-G) = nothing
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) (here-neg ina-G) = nothing
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (s , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-left ss2) (ss-posneg ss3)) (here-pos ina-G) (here-neg ina-G₁) = just (refl , (refl , (_ , _ , (_ , (_ , (_ , ((ssplit3 (ss-left ss1) (ss-left ss2) (ss-posneg ss3)) , (here-pos ina-G) , (here-neg ina-G₁))))))))
--- vcr-match-3-sr {G₁₁ = just (SSend x s , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-negpos ss3)) (here-neg ina-G) (here-pos ina-G₁) = just (refl , ((dual-involution s) , _ , (_ , (_ , (_ , (_ , ((ssplit3 (ss-left ss1) (ss-left ss2) (ss-negpos ss3)) , (here-neg ina-G) , (here-pos ina-G₁))))))))
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-negpos ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (SEnd! , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-negpos ss3)) () vcr-send
--- vcr-match-3-sr {G₁₁ = just (SEnd? , POSNEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-left ss2) (ss-negpos ss3)) () vcr-send
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) with vcr-match-3-sr (ssplit3 ss1 ss2 ss3) vcr-recv vcr-send
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₁₁' , G₁₁₂' , ssplit3 ss4 ss5 ss6 , vcr-recv' , vcr-send') = just (t1=t2 , (ds1=s2 , (_ , (_ , (_ , (_ , (_ , (ssplit3 (ss-left ss4) (ss-right ss5) (ss-both ss6) , there vcr-recv' , there vcr-send'))))))))
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | nothing = nothing
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-posneg ss2) (ss-left ss3)) (here-pos ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr (ssplit3 (ss-left ss1) (ss-posneg ss2) (ss-right ss3)) (there vcr-recv) (here-pos ina-G) = nothing
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-left ss3)) (here-neg ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-right ss3)) (there vcr-recv) (here-neg ina-G) = nothing
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-left ss1) (ss-negpos ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr (ssplit3 (ss-right ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) with vcr-match-3-sr (ssplit3 ss1 ss2 ss3) vcr-recv vcr-send
--- vcr-match-3-sr (ssplit3 (ss-right ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₁₁' , G₁₁₂' , ssplit3 ss4 ss5 ss6 , vcr-recv' , vcr-send') = just (t1=t2 , (ds1=s2 , (_ , (_ , (_ , (_ , (_ , ((ssplit3 (ss-right ss4) (ss-both ss5) (ss-both ss6)) , (there vcr-recv' , there vcr-send')))))))))
--- vcr-match-3-sr (ssplit3 (ss-right ss1) (ss-both ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | nothing = nothing
--- vcr-match-3-sr (ssplit3 (ss-posneg ss1) (ss-left ss2) (ss-left ss3)) (here-pos ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr (ssplit3 (ss-posneg ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) (here-pos ina-G) = nothing
--- vcr-match-3-sr (ssplit3 (ss-posneg ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) with vcr-match-3-sr (ssplit3 ss1 ss2 ss3) vcr-recv vcr-send
--- vcr-match-3-sr (ssplit3 (ss-posneg ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₁₁' , G₁₁₂' , ssplit3 ss4 ss5 ss6 , vcr-recv' , vcr-send') = just (t1=t2 , (ds1=s2 , (_ , (_ , (_ , (_ , (_ , (ssplit3 (ss-posneg ss4) (ss-right ss5) (ss-both ss6) , there vcr-recv' , there vcr-send'))))))))
--- vcr-match-3-sr (ssplit3 (ss-posneg ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | nothing = nothing
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-left ss3)) (here-neg ina-G) (there vcr-send) = nothing
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-left ss3)) () (there vcr-send)
--- vcr-match-3-sr {G₁₁ = just (SSend x s , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SRecv x s , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) (here-neg ina-G) = nothing
--- vcr-match-3-sr {G₁₁ = just (SEnd! , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr {G₁₁ = just (SEnd? , NEG) ∷ G₁₁} (ssplit3 (ss-negpos ss1) (ss-left ss2) (ss-right ss3)) (there vcr-recv) ()
--- vcr-match-3-sr (ssplit3 (ss-negpos ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) with vcr-match-3-sr (ssplit3 ss1 ss2 ss3) vcr-recv vcr-send
--- vcr-match-3-sr (ssplit3 (ss-negpos ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | just (t1=t2 , ds1=s2 , G' , G₁' , G₁₁' , G₁₁₁' , G₁₁₂' , ssplit3 ss4 ss5 ss6 , vcr-recv' , vcr-send') = just (t1=t2 , (ds1=s2 , (_ , (_ , (_ , (_ , (_ , (ssplit3 (ss-negpos ss4) (ss-right ss5) (ss-both ss6) , there vcr-recv' , there vcr-send'))))))))
--- vcr-match-3-sr (ssplit3 (ss-negpos ss1) (ss-right ss2) (ss-both ss3)) (there vcr-recv) (there vcr-send) | nothing = nothing
+vcr-match-2-sr {G₁ = .(just (SRecv _ _ , POS) ∷ _)} (ssplit2 (ss-posneg ss1) (ss-left ss2)) (here-pos ina-G) (there vcr-send) = nothing
+vcr-match-2-sr {G₁ = .(just (SSend _ _ , POS) ∷ _)} (ssplit2 (ss-posneg ss1) (ss-right ss2)) (there vcr-recv) (here-pos ina-G) = nothing
+vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-send) = nothing
+vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SIntern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SExtern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SIntN m alt , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SExtN m alt , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () (there vcr-send)
+vcr-match-2-sr {G₁ = just (SSend t s , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SRecv t s , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) (here-neg ina-G) = nothing
+vcr-match-2-sr {G₁ = just (SIntern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SExtern s₁ s₂ , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SIntN m alt , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SExtN m alt , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SEnd! , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+vcr-match-2-sr {G₁ = just (SEnd? , NEG) ∷ _} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-recv) ()
+
 
 vcr-match-2-sb : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁₁ s₁₂ s₂₁ s₂₂}
   → SSplit2 G G₁ G₂ G₁₁ G₁₂
@@ -220,6 +149,8 @@ vcr-match-2-sb : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁₁ s₁₂ s₂
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
           ValidChannelRef G₁₁' b₁ (selection lab (unroll s₁₁) (unroll s₁₂)) ×
           ValidChannelRef G₁₂' b₂ (selection lab (unroll s₂₁) (unroll s₂₂)))
+vcr-match-2-sb ss2 vcr-int vcr-ext lab = {!!}
+{-
 vcr-match-2-sb (ssplit2 ss-[] ss-[]) () vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab with vcr-match-2-sb (ssplit2 ss1 ss2) vcr-int vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab | just (ds11=s21 , ds12=s22 , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-int' , vcr-ext') = just (ds11=s21 , ds12=s22 , _ , _ , _ , _ , ssplit2 (ss-both ss1') (ss-both ss2') , there vcr-int' , there vcr-ext')
@@ -266,3 +197,4 @@ vcr-match-2-sb {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
+-}
