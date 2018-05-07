@@ -417,6 +417,20 @@ matchBranchAndGo ss-top (ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-tp (tcons ss 
 ... | GGG1 , GGG2 , ss-GG-ggg1-ggg2 , ss-ggg1-gc1-gc2 , ss-ggg2-g1-gi1 with ssplit-compose3 _ _ _ _ _ ss-ggg2-g1-gi1 ss-gi1-g3-gi2
 ... | Gi3 , ss-ggg2-gi3-gi2 , ss-gi3-gg12-g2 = just (GG , tcons ss-GG-ggg1-ggg2 (Stopped ss-ggg1-gc1-gc2 (VChan b₁ vcr-sel) κ) (tcons ss-ggg2-gi3-gi2 (Stopped ss-gi3-gg12-g2 (VChan b vcr-bra) (dcont lab)) (tappend ss-gi2-g2-gtpacc tp-wl tp-acc)))
 
+matchNBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ m alt}
+  → SSplit G Gc Gtp
+  -- select command
+  → (SSplit Gc Gc₁ Gc₂ × Σ (Fin m) λ lab → Val Gc₁ (TChan (SIntN m alt)) × Cont Gc₂ φ (TChan (unroll (alt lab))))
+  -- focused thread pool
+  → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
+  → Maybe (Σ SCtx λ G' → ThreadPool G')
+matchNBranchAndGo ss-top nselect-info ss-tp (tnil ina) tp-acc = nothing
+matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd@(NBranch ss₁ (VChan b vcr) dcont) tp-wl) tp-acc = {!!}
+matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchNBranchAndGo ss-top nselect-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+
+
+-- outcomes of scheduling
 data Outcome : Set where
   Terminated : Outcome
   OutOfFuel : ∀ {G} → ThreadPool G → Outcome
