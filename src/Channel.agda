@@ -149,8 +149,6 @@ vcr-match-2-sb : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁₁ s₁₂ s₂
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
           ValidChannelRef G₁₁' b₁ (selection lab (unroll s₁₁) (unroll s₁₂)) ×
           ValidChannelRef G₁₂' b₂ (selection lab (unroll s₂₁) (unroll s₂₂)))
-vcr-match-2-sb ss2 vcr-int vcr-ext lab = {!!}
-{-
 vcr-match-2-sb (ssplit2 ss-[] ss-[]) () vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab with vcr-match-2-sb (ssplit2 ss1 ss2) vcr-int vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab | just (ds11=s21 , ds12=s22 , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-int' , vcr-ext') = just (ds11=s21 , ds12=s22 , _ , _ , _ , _ , ssplit2 (ss-both ss1') (ss-both ss2') , there vcr-int' , there vcr-ext')
@@ -158,6 +156,8 @@ vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-
 vcr-match-2-sb {G₁ = just (.(SIntern _ _) , POS) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-pos ina-G) (there vcr-ext) lab = nothing
 vcr-match-2-sb {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SIntN m alt , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SExtN m alt , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-ext) lab = nothing
 vcr-match-2-sb {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-left ss2)) () vcr-ext lab
@@ -166,6 +166,8 @@ vcr-match-2-sb {G₁ = just (s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-le
 vcr-match-2-sb {G₁ = just (.(SExtern _ _) , POS) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) (here-pos ina-G) lab = nothing
 vcr-match-2-sb {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
+vcr-match-2-sb {G₁ = just (SIntN m alt , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
+vcr-match-2-sb {G₁ = just (SExtN m alt , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) (here-neg ina-G) lab = nothing
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-right ss2)) (there vcr-int) () lab
@@ -175,6 +177,8 @@ vcr-match-2-sb {s₁₁ = s₁₁} (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here
 vcr-match-2-sb {s₁₂ = s₁₂} (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G) (here-neg ina-G₁) Right rewrite sym (unroll-dual s₁₂) = just (refl , refl , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-posneg ss2) , here-pos ina-G ,  here-neg ina-G₁)
 vcr-match-2-sb {G₁ = just (SSend t s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SRecv t s , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SIntN m alt , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SExtN m alt , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SIntern s s₁ , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) (here-neg ina-G) (here-pos ina-G₁) Left rewrite sym (unroll-dual s) = just (dual-involution _ , dual-involution _ , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-negpos ss2) , here-neg ina-G , here-pos ina-G₁)
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , POSNEG) ∷ G₁} (ssplit2 (ss-left ss1) (ss-negpos ss2)) (here-neg ina-G) (here-pos ina-G₁) Right rewrite sym (unroll-dual s₁) = just (dual-involution _ , dual-involution _ , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-negpos ss2) , here-neg ina-G , here-pos ina-G₁)
@@ -187,14 +191,18 @@ vcr-match-2-sb (ssplit2 (ss-posneg ss1) (ss-left ss2)) (here-pos ina-G) (there v
 vcr-match-2-sb (ssplit2 (ss-posneg ss1) (ss-right ss2)) (there vcr-int) (here-pos ina-G) lab = nothing
 vcr-match-2-sb {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SIntN m alt , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
+vcr-match-2-sb {G₁ = just (SExtN m alt , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) (here-neg ina-G) (there vcr-ext) lab = nothing
 vcr-match-2-sb {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-left ss2)) () vcr-ext lab
 vcr-match-2-sb {G₁ = just (SSend t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SRecv t s , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
+vcr-match-2-sb {G₁ = just (SIntN m alt , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
+vcr-match-2-sb {G₁ = just (SExtN m alt , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SIntern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) (here-neg ina-G) lab = nothing
 vcr-match-2-sb {G₁ = just (SExtern s s₁ , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SEnd! , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
 vcr-match-2-sb {G₁ = just (SEnd? , NEG) ∷ G₁} (ssplit2 (ss-negpos ss1) (ss-right ss2)) (there vcr-int) () lab
--}
+

@@ -1,6 +1,7 @@
 module Session where
 
 open import Data.Bool
+open import Data.Fin
 open import Data.Empty
 open import Data.List
 open import Data.List.All
@@ -93,6 +94,17 @@ mutual
       → (vch : Val G₁ (TChan (SExtern s₁ s₂)))
       → (dcont : (lab : Selector) → Cont G₂ φ (TChan (selection lab (unroll s₁) (unroll s₂))))
       → Command G
+    NSelect : ∀ {φ G₁ G₂ m alt}
+      → (ss : SSplit G G₁ G₂)
+      → (lab : Fin m)
+      → (vch : Val G₁ (TChan (SIntN m alt)))
+      → (κ : Cont G₂ φ (TChan (unroll (alt lab))))
+      → Command G
+    NBranch : ∀ {φ G₁ G₂ m alt}
+      → (ss : SSplit G G₁ G₂)
+      → (vch : Val G₁ (TChan (SExtN m alt)))
+      → (dcont : (lab : Fin m) → Cont G₂ φ (TChan (unroll (alt lab))))
+      → Command G
       
 -- 
 
@@ -159,6 +171,17 @@ run f tsp ssp (send sp ch vv) ϱ κ with split-env sp ϱ
 ... | G₁' , G₂' , ss-g1'g2' , ss-g3g5 , ss-g4g6 rewrite sym (inactive-right-ssplit ss-g1g3g4 ina-G₄) | sym (inactive-right-ssplit ss-g2g5g6 ina-G₆) = Send ssp ss-gg vch vvv κ
 run f tsp ssp (recv ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Recv ssp vch κ
+run f tsp ssp (nselect lab ch) ϱ κ with access ϱ ch
+... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = NSelect ssp lab vch κ
+run f tsp ssp (nbranch{m}{alt} sp ch ealts) ϱ κ with split-env sp ϱ
+... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ ch
+... | G₁ , G₂ , ina-G₂ , ss-vi , vch with ssplit-compose _ _ _ _ _ ssp ss-G1G1'G2'
+... | Gi , ss-G-G1'Gi , ss-Gi-G2'-G2 with split-rotate tsp sp
+... | φ' , sp-φφ1φ' , sp-φ'φ3φ4 with inactive-right-ssplit ss-vi ina-G₂
+... | refl = NBranch ss-G-G1'Gi vch dcont
+  where
+    dcont : (lab : Fin m) → Cont Gi _ (TChan (unroll (alt lab)))
+    dcont lab = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 (ealts lab) ϱ₂ κ
 run f tsp ssp (select lab ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Select ssp lab vch κ
 run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp ϱ
@@ -232,6 +255,8 @@ lift-command (Send ss ss-args vch v κ) = Send (ss-both ss) (ss-both ss-args) (l
 lift-command (Recv ss vch κ) = Recv (ss-both ss) (lift-val vch) (lift-cont κ)
 lift-command (Select ss lab vch κ) = Select (ss-both ss) lab (lift-val vch) (lift-cont κ)
 lift-command (Branch ss vch dcont) = Branch (ss-both ss) (lift-val vch) λ lab → lift-cont (dcont lab)
+lift-command (NSelect ss lab vch κ) = NSelect (ss-both ss) lab (lift-val vch) (lift-cont κ)
+lift-command (NBranch ss vch dcont) = NBranch (ss-both ss) (lift-val vch) λ lab → lift-cont (dcont lab)
 -- threads
 data ThreadPool (G : SCtx) : Set where
   tnil : (ina : Inactive G) → ThreadPool G
@@ -274,7 +299,13 @@ matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Halt x) tp-wl) tp-acc with ssplit
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss (New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (New s κ) tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(NSelect ss-args lab vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Select ss-args lab vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(NBranch _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Branch _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
@@ -317,7 +348,11 @@ matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Halt x) tp-wl) tp-acc with 
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(NSelect ss-arg lab vch κ) tp-wl)  tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Select ss-arg lab vch κ) tp-wl)  tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(NBranch _ _ _) tp-wl)  tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Branch _ _ _) tp-wl)  tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -364,6 +399,10 @@ matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Wait ss₁ v κ) tp-wl)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Send ss₁ ss-args vch v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Recv ss₁ vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(NSelect ss₁ lab vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(NBranch _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Select ss₁ lab vch κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -416,7 +455,10 @@ schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Select ss-vκ lab vch κ) tp) w
 ... | G' , ina-G' , ss-GG' with matchBranchAndGo ss (ss-vκ , lab , vch , κ) ss-GG' tp (tnil ina-G')
 schedule (More f) G (tcons {G₁} {G₂} ss (Select ss-vκ lab vch κ) tp) | G' , ina-G' , ss-GG' | just (G-next , tp-next) = schedule f G-next tp-next
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Select ss-vκ lab vch κ) tp) | G' , ina-G' , ss-GG' | nothing = schedule f G (tsnoc ss tp cmd)
+-- FIX THIS!
+schedule (More f) G (tcons {G₁} {G₂} ss cmd@(NSelect ss-vκ lab vch κ) tp) = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Branch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(NBranch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
 schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 
 -- start main thread

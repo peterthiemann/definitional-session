@@ -1,5 +1,6 @@
 module Syntax where
 
+open import Data.Fin
 open import Data.List hiding (reverse)
 open import Data.List.All
 open import Data.Nat
@@ -78,13 +79,22 @@ data Expr : (φ : TCtx) → Ty → Set where
             s₂' = unroll s₂ in
         Expr φ (TChan (selection lab s₁' s₂'))
 
-  -- potential problem: if both branches return a channel, this typing does not require that it's the *same* channel
-  -- later on in the semantic model, there may be a mismatch in the resources returned by the branches
   branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
       → (ch : TChan (SExtern s₁ s₂) ∈ φ₁)
       → (eleft : Expr (TChan (unroll s₁) ∷ φ₂) t)
       → (erght : Expr (TChan (unroll s₂) ∷ φ₂) t)
+      → Expr φ t
+
+  nselect : ∀ {m alt φ}
+      → (lab : Fin m)
+      → (ch : TChan (SIntN m alt) ∈ φ)
+      → Expr φ (TChan (unroll (alt lab)))
+
+  nbranch : ∀ {m alt φ φ₁ φ₂ t}
+      → (sp : Split φ φ₁ φ₂)
+      → (ch : TChan (SExtN m alt) ∈ φ₁)
+      → (ealts : (i : Fin m) → Expr (TChan (unroll (alt i)) ∷ φ₂) t)
       → Expr φ t
 
   ulambda : ∀ {φ φ₁ φ₂ t₁ t₂}
@@ -134,6 +144,8 @@ unr-weaken sp un-φ₂ (send sp₁ ch vv) = letbind sp (send sp₁ ch vv) (var (
 unr-weaken sp un-φ₂ (recv ch) = letbind sp (recv ch) (var (here un-φ₂))
 unr-weaken sp un-φ₂ (close ch) = letbind sp (close ch) (var (here un-φ₂))
 unr-weaken sp un-φ₂ (wait ch) = letbind sp (wait ch) (var (here un-φ₂))
+unr-weaken sp un-φ₂ (nselect lab ch) = letbind sp (nselect lab ch) (var (here un-φ₂))
+unr-weaken sp un-φ₂ (nbranch sp₁ ch ealts) = letbind sp (nbranch sp₁ ch ealts) (var (here un-φ₂))
 unr-weaken sp un-φ₂ (select lab ch) = letbind sp (select lab ch) (var (here un-φ₂))
 unr-weaken sp un-φ₂ (branch sp₁ ch e e₁) with split-rotate sp sp₁
 ... | φ' , sp-φφ₃φ' , sp-φ'φ₄φ₂ = branch sp-φφ₃φ' ch (unr-weaken (left sp-φ'φ₄φ₂) un-φ₂ e) (unr-weaken (left sp-φ'φ₄φ₂) un-φ₂ e₁)
@@ -156,6 +168,8 @@ lift-expr unrtu (close ch) = close (there unrtu ch)
 lift-expr unrtu (wait ch) = wait (there unrtu ch)
 lift-expr unrtu (send sp ch vv) = send (rght sp) ch (there unrtu vv)
 lift-expr unrtu (recv ch) = recv (there unrtu ch)
+lift-expr unrtu (nselect lab ch) = nselect lab (there unrtu ch)
+lift-expr unrtu (nbranch sp ch ealts) = nbranch (left sp) (there unrtu ch) ealts
 lift-expr unrtu (select lab ch) = select lab (there unrtu ch)
 lift-expr unrtu (branch sp ch x₁ x₂) = branch (left sp) (there unrtu ch) x₁ x₂
 lift-expr unrtu (ulambda sp unr-φ unr-φ₂ ebody) = ulambda (rght sp) unr-φ (unrtu ∷ unr-φ₂) ebody
@@ -177,6 +191,8 @@ unr-subst unrtu sp unr-φ₁ etu (send sp₁ ch vv) = letbind sp etu (send sp₁
 unr-subst unrtu sp unr-φ₁ etu (recv ch) = letbind sp etu (recv ch)
 unr-subst unrtu sp unr-φ₁ etu (close ch) = letbind sp etu (close ch)
 unr-subst unrtu sp unr-φ₁ etu (wait ch) = letbind sp etu (wait ch)
+unr-subst unrtu sp unr-φ₁ etu (nselect lab ch) = letbind sp etu (nselect lab ch)
+unr-subst unrtu sp unr-φ₁ etu (nbranch sp₁ ch ealts) = letbind sp etu (nbranch sp₁ ch ealts)
 unr-subst unrtu sp unr-φ₁ etu (select lab ch) = letbind sp etu (select lab ch)
 unr-subst unrtu sp unr-φ₁ etu (branch sp₁ ch e e₁) = letbind sp etu (branch sp₁ ch e e₁)
 unr-subst unrtu sp unr-φ₁ etu (ulambda sp₁ unr-φ₂ unr-φ₃ e) = letbind sp etu (ulambda sp₁ unr-φ₂ unr-φ₃ e)
