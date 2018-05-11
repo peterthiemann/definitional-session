@@ -26,9 +26,8 @@ data Fuel : Set where
 mutual
   data Cont (G : SCtx) (φ : TCtx) (t : Ty) : Set where
     halt-cont :
-      (un-φ : All Unr φ)
+      Inactive G 
       → (un-t : Unr t)
-      → (ϱ : VEnv G φ)
       → Cont G φ t
 
     bind : ∀ { φ₁ φ₂ G₁ G₂ t₂}
@@ -53,8 +52,10 @@ mutual
       → (κ : Cont G₂ φ t)
       → Command G
 
-    Halt :
-      Inactive G
+    Halt : ∀ {t}
+      → Inactive G
+      → Unr t
+      → Val G t
       → Command G
     New : ∀ {φ}
       → (s : STy)
@@ -155,7 +156,7 @@ run{φ}{φ₁}{G = G}{G₁ = G₁} f tsp ssp (fork e) ϱ κ with ssplit-refl-lef
 ... | (Gp1 , Gp2) , ss-Gp , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ' ϱ₂
 ... | ina-Gp2 with inactive-right-ssplit-transform ss-Gp ina-Gp2
 ... | ss-Gp' rewrite sym (ssplit-function2 ss-g1g1g2 ss-Gp') =
-  Fork ssp (bind sp-φφφ' ss-g1g1g2 (lift-expr UUnit e) ϱ (halt-cont unr-φ' UUnit ϱ₂)) κ
+  Fork ssp (bind sp-φφφ' ss-g1g1g2 (lift-expr UUnit e) ϱ (halt-cont ina-Gp2 UUnit)) κ
 run f tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina rewrite inactive-left-ssplit ssp ina = New s κ
 run f tsp ssp (close ch) ϱ κ with access ϱ ch
@@ -215,13 +216,15 @@ run{φ}{φ₁}{φ₂} f tsp ssp (app sp efun earg) ϱ κ | (G₁ , G₂) , ss-gg
 ... | refl with split-from-disjoint φ' φ₂
 ... | φ₀ , sp' = Stopped ss-g-g5-gi1 varg (bind sp' ss-gi1-gi-g2 e ϱ₃ κ)
 
-apply-cont f ssp (halt-cont un-φ un-t ϱ) v with unrestricted-venv un-φ ϱ | unrestricted-val un-t v
-... | inG1 | inG2 = Halt (ssplit-inactive ssp inG2 inG1)
+apply-cont f ssp (halt-cont inG un-t) v with unrestricted-val un-t v
+... | inG2  with inactive-right-ssplit ssp inG
+... | refl = Halt (ssplit-inactive ssp inG2 inG) un-t v
 apply-cont (More f) ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 _ _ _ _ _ ssp ss
 ... | Gi , ss-GGiG4 , ss-GiG1G3 =
   run f (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
 apply-cont Empty ssp (bind ts ss e₂ ϱ₂ κ) v =
   Stopped ssp v (bind ts ss e₂ ϱ₂ κ)
+
 
 extract-inactive-from-cont : ∀ {G t φ} → Unr t → Cont G φ t → Σ SCtx λ G' → Inactive G' × SSplit G G' G
 extract-inactive-from-cont{G} un-t κ = ssplit-refl-right-inactive G
@@ -241,13 +244,13 @@ lift-venv (vnil ina) = vnil (::-inactive _ ina)
 lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
 
 lift-cont : ∀ {G t φ} → Cont G φ t → Cont (nothing ∷ G) φ t
-lift-cont (halt-cont un-φ un-t ϱ) = halt-cont un-φ un-t (lift-venv ϱ)
+lift-cont (halt-cont inG un-t) = halt-cont (::-inactive _ inG) un-t
 lift-cont (bind ts ss e₂ ϱ₂ κ) = bind ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
 lift-command (Fork ss κ₁ κ₂) = Fork (ss-both ss) (lift-cont κ₁) (lift-cont κ₂)
 lift-command (Stopped ss v κ) = Stopped (ss-both ss) (lift-val v) (lift-cont κ)
-lift-command (Halt x) = Halt (::-inactive _ x)
+lift-command (Halt x unr-t v) = Halt (::-inactive _ x) unr-t (lift-val v)
 lift-command (New s κ) = New s (lift-cont κ)
 lift-command (Close ss v κ) = Close (ss-both ss) (lift-val v) (lift-cont κ)
 lift-command (Wait ss v κ) = Wait (ss-both ss) (lift-val v) (lift-cont κ)
@@ -293,9 +296,9 @@ matchWaitAndGo ss-top cl-info ss-tp  (tcons ss (Fork ss₁ κ₁ κ₂) tp-wl) t
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Stopped ss₁ v κ) tp-acc)
-matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Halt x _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
-  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Halt x) tp-acc)
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss (New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (New s κ) tp-acc)
@@ -344,7 +347,7 @@ matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp-
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
-matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Halt _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -388,7 +391,7 @@ matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂)
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
-matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Halt x) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Halt _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(New s κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -425,7 +428,7 @@ matchNBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ m alt}
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (Σ SCtx λ G' → ThreadPool G')
 matchNBranchAndGo ss-top nselect-info ss-tp (tnil ina) tp-acc = nothing
-matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd@(NBranch ss₁ (VChan b vcr) dcont) tp-wl) tp-acc = {!!}
+matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd@(NBranch ss₁ (VChan b vcr) dcont) tp-wl) tp-acc = nothing -- FIXME!
 matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchNBranchAndGo ss-top nselect-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 
@@ -446,8 +449,8 @@ schedule (More f) G (tcons ss (Fork{G₁ = G₁}{G₂ = G₂} ss₁ κ₁ κ₂)
     (tcons ss₂₄ (apply-cont f ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
 schedule (More f) G (tcons ss (Stopped ss₁ v κ) tp) =
   schedule f G (tsnoc ss tp (apply-cont f ss₁ κ v))
-schedule (More f) G (tcons ss (Halt inaG) tp) with tp | inactive-left-ssplit ss inaG
-schedule (More f) G (tcons ss (Halt inaG) tp) | tp' | refl = schedule f G tp'
+schedule (More f) G (tcons ss (Halt inaG _ _) tp) with tp | inactive-left-ssplit ss inaG
+schedule (More f) G (tcons ss (Halt inaG _ _) tp) | tp' | refl = schedule f G tp'
 schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | Gi , ss-GiG1 with ssplit-inactive-right ss-GiG1
 ... | ina-Gi =
@@ -478,4 +481,4 @@ schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
 -- start main thread
 start : Fuel → Expr [] TUnit → Outcome
 start f e =
-  schedule f [] (tcons ss-[] (run f [] ss-[] e (vnil []-inactive) (halt-cont [] UUnit (vnil []-inactive))) (tnil []-inactive))
+  schedule f [] (tcons ss-[] (run f [] ss-[] e (vnil []-inactive) (halt-cont []-inactive UUnit)) (tnil []-inactive))
