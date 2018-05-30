@@ -1,31 +1,18 @@
-{-# OPTIONS --copatterns #-}
 module Relations where
 
--- open import Agda.Builtin.Size
-
 open import Data.Fin hiding (_≤_)
+open import Data.List
+open import Data.List.All
+open import Data.Maybe hiding (All)
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Product
+
 open import Relation.Binary.PropositionalEquality
 
-open import Typing
-
-{-
-mutual
-
-  data Delay {a} (A : Set a) (i : Size) : Set a where
-    now   : A          → Delay A i
-    later : Delay′ A i → Delay A i
-
-  record Delay′ {a} (A : Set a) (i : Size) : Set a where
-    coinductive
-    constructor delay
-    field
-      force : {j : Size< i} → Delay A j
-
-open Delay′ public
--}
+-- linearity indicator
+data LU : Set where
+  LL UU : LU
 
 -- coinductive view on session types
 -- following "Interactive Programming in Agda"
@@ -34,7 +21,7 @@ mutual
   data Type : Set where
     TUnit TInt : Type
     TPair : Type → Type → Type
-    TChan : Session → Type
+    TChan : SessionF Session → Type
     TFun  : LU → Type → Type → Type
   
   data SessionF (S : Set) : Set where
@@ -49,25 +36,6 @@ mutual
     field force : SessionF Session
 
 open Session
-
-inType : Ty → Type
-inSession : STy₀ 0 → Session
-
-inType TUnit = TUnit
-inType TInt = TInt
-inType (TPair t t₁) = TPair (inType t) (inType t₁)
-inType (TChan x) = TChan (inSession (S1 x))
-inType (TFun x t t₁) = TFun x (inType t) (inType t₁)
-
-force (inSession s0) with unroll s0
-force (inSession s0) | SSend t s = send (inType t) (inSession s)
-force (inSession s0) | SRecv t s = recv (inType t) (inSession s)
-force (inSession s0) | SIntern s₁ s₂ = sintern (inSession s₁) (inSession s₂)
-force (inSession s0) | SExtern s₁ s₂ = sextern (inSession s₁) (inSession s₂)
-force (inSession s0) | SIntN m alt = sintN m λ x → inSession (alt x)
-force (inSession s0) | SExtN m alt = sextN m λ x → inSession (alt x)
-force (inSession s0) | SEnd! = send!
-force (inSession s0) | SEnd? = send?
 
 -- session type equivalence
 data EquivF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
@@ -86,9 +54,12 @@ record Equiv (s1 : Session) (s2 : Session) : Set where
 
 open Equiv
 
+_≈_ = Equiv
+_≈'_ = EquivF Equiv
+
 -- equivalence is reflexive
-equivF-refl : ∀ s → EquivF Equiv s s
-equiv-refl : ∀ s → Equiv s s
+equivF-refl : ∀ s → s ≈' s
+equiv-refl : ∀ s → s ≈ s
 
 force (equiv-refl s) = equivF-refl (force s)
 
@@ -102,19 +73,20 @@ equivF-refl send! = eq-send!
 equivF-refl send? = eq-send?
 
 -- equivalence is symmetric
-equivF-sym : ∀ s1 s2 → EquivF Equiv s1 s2 → EquivF Equiv s2 s1
-equiv-sym : ∀ s1 s2 → Equiv s1 s2 → Equiv s2 s1
 
-force (equiv-sym s1 s2 s1~s2) = equivF-sym (force s1) (force s2) (force s1~s2)
+eqF-sym : ∀ {s1 s2} → s1 ≈' s2 → s2 ≈' s1
+eq-sym : ∀ {s1 s2} → s1 ≈ s2 → s2 ≈ s1
 
-equivF-sym (send .t s1) (send .t s2) (eq-send t x) = eq-send t (equiv-sym s1 s2 x)
-equivF-sym (recv .t s1) (recv .t s2) (eq-recv t x) = eq-recv t (equiv-sym s1 s2 x)
-equivF-sym (sintern s s₁) (sintern s' s₁') (eq-sintern x x₁) = eq-sintern (equiv-sym s s' x) (equiv-sym s₁ s₁' x₁)
-equivF-sym (sextern s s₁) (sextern s' s₁') (eq-sextern x x₁) = eq-sextern (equiv-sym s s' x) (equiv-sym s₁ s₁' x₁)
-equivF-sym (sintN _ alt) (sintN _ alt') (eq-sintN x) = eq-sintN λ i → equiv-sym (alt i) (alt' i) (x i)
-equivF-sym (sextN _ alt) (sextN _ alt') (eq-sextN x) = eq-sextN λ i → equiv-sym (alt i) (alt' i) (x i)
-equivF-sym .send! .send! eq-send! = eq-send!
-equivF-sym .send? .send? eq-send? = eq-send?
+eqF-sym (eq-send t x) = eq-send t (eq-sym x)
+eqF-sym (eq-recv t x) = eq-recv t (eq-sym x)
+eqF-sym (eq-sintern x x₁) = eq-sintern (eq-sym x) (eq-sym x₁)
+eqF-sym (eq-sextern x x₁) = eq-sextern (eq-sym x) (eq-sym x₁)
+eqF-sym (eq-sintN x) = eq-sintN λ i → eq-sym (x i)
+eqF-sym (eq-sextN x) = eq-sextN λ i → eq-sym (x i)
+eqF-sym eq-send! = eq-send!
+eqF-sym eq-send? = eq-send?
+
+force (eq-sym s1~s2) = eqF-sym (force s1~s2)
 
 -- equivalence is transitive
 equivF-trans : ∀ s1 s2 s3 → EquivF Equiv s1 s2 → EquivF Equiv s2 s3 → EquivF Equiv s1 s3
@@ -131,6 +103,39 @@ equivF-trans .(sextN _ _) .(sextN _ _) .(sextN _ _) (eq-sextN x) (eq-sextN x₁)
 equivF-trans .send! .send! .send! eq-send! eq-send! = eq-send!
 equivF-trans .send? .send? .send? eq-send? eq-send? = eq-send?
 
+-- dual
+dual : Session → Session
+dualF : SessionF Session → SessionF Session
+
+force (dual s) = dualF (force s)
+
+dualF (send t s) = recv t (dual s)
+dualF (recv t s) = send t (dual s)
+dualF (sintern s1 s2) = sextern (dual s1) (dual s2)
+dualF (sextern s1 s2) = sintern (dual s1) (dual s2)
+dualF (sintN m alt) = sextN m λ i → dual (alt i)
+dualF (sextN m alt) = sintN m λ i → dual (alt i)
+dualF send! = send?
+dualF send? = send!
+
+-- properties
+
+dual-involution : (s : Session) → s ≈ dual (dual s)
+dual-involutionF : (s : SessionF Session) → s ≈' dualF (dualF s)
+
+force (dual-involution s) = dual-involutionF (force s)
+
+dual-involutionF (send t s) = eq-send t (dual-involution s)
+dual-involutionF (recv t s) = eq-recv t (dual-involution s)
+dual-involutionF (sintern s1 s2) = eq-sintern (dual-involution s1) (dual-involution s2)
+dual-involutionF (sextern s1 s2) = eq-sextern (dual-involution s1) (dual-involution s2)
+dual-involutionF (sintN m alt) = eq-sintN λ i → dual-involution (alt i)
+dual-involutionF (sextN m alt) = eq-sextN λ i → dual-involution (alt i)
+dual-involutionF send! = eq-send!
+dual-involutionF send? = eq-send?
+
+
+
 mutual
   -- subtyping
   data SubT : Type → Type → Set where
@@ -138,7 +143,7 @@ mutual
     sub-int  : SubT TInt TInt
     sub-pair : ∀ {t₁ t₂ t₁' t₂'} → SubT t₁ t₁' → SubT t₂ t₂' → SubT (TPair t₁ t₂) (TPair t₁' t₂')
     sub-fun  : ∀ {t₁ t₂ t₁' t₂' lu} → SubT t₁' t₁ → SubT t₂ t₂' → SubT (TFun lu t₁ t₂) (TFun lu t₁' t₂')
-    sub-chan : ∀ {s s'} → Sub s s' → SubT (TChan s) (TChan s')
+    sub-chan : ∀ {s s'} → SubF Sub s s' → SubT (TChan s) (TChan s')
 
   -- session type subtyping
   data SubF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
@@ -193,7 +198,7 @@ subF-refl send? = sub-send?
 subt-refl TUnit = sub-unit
 subt-refl TInt = sub-int
 subt-refl (TPair t t₁) = sub-pair (subt-refl t) (subt-refl t₁)
-subt-refl (TChan s) = sub-chan (sub-refl s)
+subt-refl (TChan s) = sub-chan (subF-refl s)
 subt-refl (TFun x t t₁) = sub-fun (subt-refl t) (subt-refl t₁)
 
 -- subtyping is transitive
@@ -205,7 +210,7 @@ subt-trans sub-unit sub-unit = sub-unit
 subt-trans sub-int sub-int = sub-int
 subt-trans (sub-pair t1<:t2 t1<:t3) (sub-pair t2<:t3 t2<:t4) = sub-pair (subt-trans t1<:t2 t2<:t3) (subt-trans t1<:t3 t2<:t4)
 subt-trans (sub-fun t1<:t2 t1<:t3) (sub-fun t2<:t3 t2<:t4) = sub-fun (subt-trans t2<:t3 t1<:t2) (subt-trans t1<:t3 t2<:t4)
-subt-trans (sub-chan s1<:s2) (sub-chan s2<:s3) = sub-chan (sub-trans s1<:s2 s2<:s3)
+subt-trans (sub-chan s1<:s2) (sub-chan s2<:s3) = sub-chan (subF-trans s1<:s2 s2<:s3)
 
 force (sub-trans s1<:s2 s2<:s3) = subF-trans (force s1<:s2) (force s2<:s3)
 
@@ -220,10 +225,111 @@ subF-trans {sintN m alt}{sintN m' alt'}{sintN m'' alt''} (sub-sintN m'≤m palt)
     auxInt i with palt (inject≤ i m''≤m')
     ... | r rewrite (inject-trans  m'≤m m''≤m' i) = r
 subF-trans {sextN m alt}{sextN m' alt'}{sextN m'' alt''} (sub-sextN m≤m' palt) (sub-sextN m'≤m'' palt') =
-  sub-sextN (≤-trans m≤m' m'≤m'') λ i → sub-trans (palt i) {!!}
+  sub-sextN (≤-trans m≤m' m'≤m'') λ i → sub-trans (palt i) (auxExt i)
   where
     auxExt : (i : Fin m) → Sub (alt' (inject≤ i m≤m')) (alt'' (inject≤ i (≤-trans m≤m' m'≤m'')))
     auxExt i with palt' (inject≤ i m≤m')
     ... | r rewrite (inject-trans m'≤m'' m≤m' i) = r
 subF-trans sub-send! sub-send! = sub-send!
 subF-trans sub-send? sub-send? = sub-send?
+
+-- unrestricted
+data Unr : Type → Set where
+  UUnit : Unr TUnit
+  UInt : Unr TInt
+  UPair : ∀ {t₁ t₂} → Unr t₁ → Unr t₂ → Unr (TPair t₁ t₂)
+  UFun :  ∀ {t₁ t₂} → Unr (TFun UU t₁ t₂)
+
+classify-type : (t : Type) → Maybe (Unr t)
+classify-type TUnit = just UUnit
+classify-type TInt = just UInt
+classify-type (TPair t₁ t₂) with classify-type t₁ | classify-type t₂
+classify-type (TPair t₁ t₂) | just x | just x₁ = just (UPair x x₁)
+classify-type (TPair t₁ t₂) | just x | nothing = nothing
+classify-type (TPair t₁ t₂) | nothing | just x = nothing
+classify-type (TPair t₁ t₂) | nothing | nothing = nothing
+classify-type (TChan x) = nothing
+classify-type (TFun LL t₁ t₂) = nothing
+classify-type (TFun UU t₁ t₂) = just UFun
+
+
+
+TCtx = List Type
+
+-- context splitting, respecting linearity
+data Split : TCtx → TCtx → TCtx → Set where
+  [] : Split [] [] []
+  unr : ∀ {t Φ Φ₁ Φ₂} → Unr t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) (t ∷ Φ₂)
+  left : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) Φ₂
+  rght : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ (t ∷ Φ₂)
+
+-- split is symmetric
+split-sym : ∀ {φ φ₁ φ₂} → Split φ φ₁ φ₂ → Split φ φ₂ φ₁
+split-sym [] = []
+split-sym (unr x sp) = unr x (split-sym sp)
+split-sym (left sp) = rght (split-sym sp)
+split-sym (rght sp) = left (split-sym sp)
+
+split-unr : ∀ {φ φ₁ φ₂} → (sp : Split φ φ₁ φ₂) → All Unr φ₁ → All Unr φ₂ → All Unr φ
+split-unr [] [] [] = []
+split-unr (unr x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
+split-unr (left sp) (px ∷ unr1) unr2 = px ∷ split-unr sp unr1 unr2
+split-unr (rght sp) unr1 (px ∷ unr2) = px ∷ split-unr sp unr1 unr2
+
+split-all-left : (φ : TCtx) → Split φ φ []
+split-all-left [] = []
+split-all-left (x ∷ φ) = left (split-all-left φ)
+
+split-all-right : (φ : TCtx) → Split φ [] φ
+split-all-right [] = []
+split-all-right (x ∷ φ) = rght (split-all-right φ)
+
+-- split the unrestricted part from a typing context
+split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ φ'
+split-refl-left [] = [] , [] , []
+split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | nothing = φ' , unr-φ' , left sp'
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | just y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
+
+split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
+split-all-unr [] = []
+split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
+
+split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
+split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
+split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
+... | φ' , sp = t ∷ φ' , left sp
+
+-- reorganize splits
+split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
+  → Split φ φ₁ φ₂ → Split φ₁ φ₁₁ φ₁₂ → Σ TCtx λ φ' → Split φ φ₁₁ φ' × Split φ' φ₁₂ φ₂
+split-rotate [] [] = [] , [] , []
+split-rotate (unr x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , unr x₁ φ'-sp
+split-rotate (unr x sp12) (left sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x sp-φ' , rght φ'-sp
+split-rotate (unr x sp12) (rght sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , unr x φ'-sp
+split-rotate (left sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , left φ'-sp
+split-rotate (left sp12) (left sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = φ' , left sp-φ' , φ'-sp
+split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , left φ'-sp
+split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
+
+
+
+-- extract from type context where all other entries are unrestricted
+data _∈_ (x : Type) : List Type → Set where
+  here  : ∀ { xs } → All Unr xs → x ∈ (x ∷ xs)
+  there : ∀ { x₀ xs } → Unr x₀ → x ∈ xs → x ∈ (x₀ ∷ xs)
+
+-- left and right branching
+data Selector : Set where
+  Left Right : Selector
+
+selection : ∀ {A : Set} → Selector → A → A → A
+selection Left x y = x
+selection Right x y = y
