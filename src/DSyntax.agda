@@ -6,7 +6,7 @@ open import Data.Nat
 
 open import Typing
 
-data DExpr :  (φ : TCtx) → Ty → Set where
+data DExpr :  (φ : TCtx) → Type → Set where
   var : ∀ {t φ}
       → (x : t ∈ φ)
       → DExpr φ t
@@ -38,41 +38,39 @@ data DExpr :  (φ : TCtx) → Ty → Set where
 
   new : ∀ {φ}
       → (unr-φ : All Unr φ)
-      → (s : STy)
-      → let s₁ = unroll s in
-        DExpr φ (TPair (TChan s₁) (TChan (dual₁ s₁)))
+      → (s : Session)
+      → DExpr φ (TPair (TChan (Session.force s)) (TChan (Session.force (dual s))))
 
-  -- takes only variables to avoid extraneous effects
   send : ∀ {φ φ₁ φ₂ s t}
       → (sp : Split φ φ₁ φ₂)
-      → (ech : DExpr φ₁ (TChan (SSend t s)))
+      → (ech : DExpr φ₁ (TChan (send t s)))
       → (earg : DExpr φ₂ t)
-      → DExpr φ (TChan (unroll s))
-  -- takes only variables to avoid extraneous effects
+      → DExpr φ (TChan (Session.force s))
+
   recv : ∀ {φ s t}
-      → (ech : DExpr φ (TChan (SRecv t s)))
-      → DExpr φ (TPair (TChan (unroll s)) t)
+      → (ech : DExpr φ (TChan (recv t s)))
+      → DExpr φ (TPair (TChan (Session.force s)) t)
 
   close : ∀ {φ}
-      → (ech : DExpr φ (TChan SEnd!))
+      → (ech : DExpr φ (TChan send!))
       → DExpr φ TUnit
 
   wait : ∀ {φ}
-      → (ech : DExpr φ (TChan SEnd?))
+      → (ech : DExpr φ (TChan send?))
       → DExpr φ TUnit
 
   select : ∀ {s₁ s₂ φ}
       → (lab : Selector)
-      → (ech : DExpr φ (TChan (SIntern s₁ s₂)))
-      → DExpr φ (TChan (selection lab (unroll s₁) (unroll s₂)))
+      → (ech : DExpr φ (TChan (sintern s₁ s₂)))
+      → DExpr φ (TChan (selection lab (Session.force s₁) (Session.force s₂)))
 
   -- potential problem: if both branches return a channel, this typing does not require that it's the *same* channel
   -- later on in the semantic model, there may be a mismatch in the resources returned by the branches
   branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
-      → (ech : DExpr φ₁ (TChan (SExtern s₁ s₂)))
-      → (eleft : DExpr (TChan (unroll s₁) ∷ φ₂) t)
-      → (erght : DExpr (TChan (unroll s₂) ∷ φ₂) t)
+      → (ech : DExpr φ₁ (TChan (sextern s₁ s₂)))
+      → (eleft : DExpr (TChan (Session.force s₁) ∷ φ₂) t)
+      → (erght : DExpr (TChan (Session.force s₂) ∷ φ₂) t)
       → DExpr φ t
 
   ulambda : ∀ {φ t₁ t₂}

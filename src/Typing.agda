@@ -1,241 +1,260 @@
 module Typing where
 
-open import Data.Bool
-open import Data.Fin hiding (_+_)
+open import Data.Fin hiding (_≤_)
 open import Data.List
 open import Data.List.All
+open import Data.Maybe hiding (All)
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Product
-open import Data.Sum
-open import Relation.Nullary
+
 open import Relation.Binary.PropositionalEquality
 
--- only used finitary for (Fin m → A)
-postulate ext : ∀ {a b} → Extensionality a b
+-- linearity indicator
+data LU : Set where
+  LL UU : LU
 
--- types and session types
+-- coinductive view on session types
+-- following "Interactive Programming in Agda"
+-- http://www.cse.chalmers.se/~abela/ooAgda.pdf
 mutual
-  -- linearity tag: linear / unrestricted
-  data LU : Set where
-    LL UU : LU
+  data Type : Set where
+    TUnit TInt : Type
+    TPair : Type → Type → Type
+    TChan : SessionF Session → Type
+    TFun  : LU → Type → Type → Type
+  
+  data SessionF (S : Set) : Set where
+    send recv : (t : Type) → (s : S) → SessionF S
+    sintern sextern : (s1 : S) (s2 : S) → SessionF S
+    sintN sextN : (m : ℕ) (alt : Fin m → S) → SessionF S
+    send! send? : SessionF S
 
-  data Ty : Set where
-    TUnit TInt : Ty
-    TPair : Ty → Ty → Ty
-    TChan : STy₁ 0 → Ty
-    TFun  : LU → Ty → Ty → Ty
+  record Session : Set where
+    coinductive 
+    constructor delay
+    field force : SessionF Session
 
-  data STy₀ (n : ℕ) : Set where
-    S1 : (s1 : STy₁ n) → STy₀ n
-    SMu : (s1 : STy₁ (suc n)) → STy₀ n
-    SVar : (i : Fin n) → STy₀ n
+open Session
 
-  data STy₁ (n : ℕ) : Set where
-    SSend SRecv : (t : Ty) → (s : STy₀ n) → STy₁ n
-    SIntern SExtern : (s₁ : STy₀ n) → (s₂ : STy₀ n) → STy₁ n
-    SIntN SExtN : (m : ℕ) (alt : Fin m → STy₀ n) → STy₁ n
-    SEnd! SEnd? : STy₁ n
+-- session type equivalence
+data EquivF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
+  eq-send : ∀ {s1 s1'} → (t : Type) → R s1 s1' → EquivF R (send t s1) (send t s1')
+  eq-recv : ∀ {s1 s1'} → (t : Type) → R s1 s1' → EquivF R (recv t s1) (recv t s1')
+  eq-sintern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → EquivF R (sintern s1 s2) (sintern s1' s2')
+  eq-sextern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → EquivF R (sextern s1 s2) (sextern s1' s2')
+  eq-sintN : ∀ {m alt alt'} → ((i : Fin m) → R (alt i) (alt' i)) → EquivF R (sintN m alt) (sintN m alt')
+  eq-sextN : ∀ {m alt alt'} → ((i : Fin m) → R (alt i) (alt' i)) → EquivF R (sextN m alt) (sextN m alt')
+  eq-send! : EquivF R send! send!
+  eq-send? : EquivF R send? send?
 
-  STy = STy₀ 0
+record Equiv (s1 : Session) (s2 : Session) : Set where
+  coinductive
+  field force : EquivF Equiv (force s1) (force s2)
 
-slift : ∀ {m} → STy₀ m → STy₀ (suc m)
-slift₁ : ∀ {m} → STy₁ m → STy₁ (suc m)
+open Equiv
 
-slift (S1 s1) = S1 (slift₁ s1)
-slift (SMu s1) = SMu (slift₁ s1)
-slift (SVar i) = SVar (suc i)
+_≈_ = Equiv
+_≈'_ = EquivF Equiv
 
-slift₁ (SSend t s) = SSend t (slift s)
-slift₁ (SRecv t s) = SRecv t (slift s)
-slift₁ (SIntern s₁ s₂) = SIntern (slift s₁) (slift s₂)
-slift₁ (SExtern s₁ s₂) = SExtern (slift s₁) (slift s₂)
-slift₁ (SIntN m alt) = SIntN m λ x → slift (alt x)
-slift₁ (SExtN m alt) = SExtN m λ x → slift (alt x)
-slift₁ SEnd! = SEnd!
-slift₁ SEnd? = SEnd?
+-- equivalence is reflexive
+equivF-refl : ∀ s → s ≈' s
+equiv-refl : ∀ s → s ≈ s
 
-ssubst : ∀ {m n} → STy₀ n → STy₀ (m + suc n) → STy₀ (m + n)
-ssubst₁ : ∀ {m n} → STy₀ n → STy₁ (m + suc n) → STy₁ (m + n)
+force (equiv-refl s) = equivF-refl (force s)
 
-ssubst₁ {m} s (SSend t s₁) = SSend t (ssubst {m} s s₁)
-ssubst₁ {m} s (SRecv t s₁) = SRecv t (ssubst {m} s s₁)
-ssubst₁ {m} s (SIntern s₁ s₂) = SIntern (ssubst {m} s s₁) (ssubst {m} s s₂)
-ssubst₁ {m} s (SExtern s₁ s₂) = SExtern (ssubst {m} s s₁) (ssubst {m} s s₂)
-ssubst₁ {m} s (SIntN m' alt) = SIntN m' λ x → ssubst {m} s (alt x)
-ssubst₁ {m} s (SExtN m' alt) = SExtN m' λ x → ssubst {m} s (alt x)
-ssubst₁ s SEnd! = SEnd!
-ssubst₁ s SEnd? = SEnd?
+equivF-refl (send t s) = eq-send t (equiv-refl s)
+equivF-refl (recv t s) = eq-recv t (equiv-refl s)
+equivF-refl (sintern s1 s2) = eq-sintern (equiv-refl s1) (equiv-refl s2)
+equivF-refl (sextern s1 s2) = eq-sextern (equiv-refl s1) (equiv-refl s2)
+equivF-refl (sintN m alt) = eq-sintN λ i → equiv-refl (alt i)
+equivF-refl (sextN m alt) = eq-sextN λ i → equiv-refl (alt i)
+equivF-refl send! = eq-send!
+equivF-refl send? = eq-send?
 
-ssubst {m} s (S1 s1) = S1 (ssubst₁ {m} s s1)
-ssubst {m} s (SMu s1) = SMu (ssubst₁ { suc m } s s1)
-ssubst {zero} s (SVar zero) = s
-ssubst {zero} s (SVar (suc i)) = SVar i
-ssubst {suc m} s (SVar zero) = SVar zero
-ssubst {suc m} s (SVar (suc i)) = slift (ssubst {m} s (SVar i))
+-- equivalence is symmetric
 
-unroll : STy₀ 0 → STy₁ 0
-unroll (S1 s1) = s1
-unroll s@(SMu s1) = ssubst₁ {0} s s1
-unroll (SVar ())
+eqF-sym : ∀ {s1 s2} → s1 ≈' s2 → s2 ≈' s1
+eq-sym : ∀ {s1 s2} → s1 ≈ s2 → s2 ≈ s1
 
-dual : ∀ {n} → STy₀ n → STy₀ n
-dual₁ : ∀ {n} → STy₁ n → STy₁ n
+eqF-sym (eq-send t x) = eq-send t (eq-sym x)
+eqF-sym (eq-recv t x) = eq-recv t (eq-sym x)
+eqF-sym (eq-sintern x x₁) = eq-sintern (eq-sym x) (eq-sym x₁)
+eqF-sym (eq-sextern x x₁) = eq-sextern (eq-sym x) (eq-sym x₁)
+eqF-sym (eq-sintN x) = eq-sintN λ i → eq-sym (x i)
+eqF-sym (eq-sextN x) = eq-sextN λ i → eq-sym (x i)
+eqF-sym eq-send! = eq-send!
+eqF-sym eq-send? = eq-send?
 
-dual₁ (SSend x s) = SRecv x (dual s)
-dual₁ (SRecv x s) = SSend x (dual s)
-dual₁ (SIntern s₁ s₂) = SExtern (dual s₁) (dual s₂)
-dual₁ (SExtern s₁ s₂) = SIntern (dual s₁) (dual s₂)
-dual₁ (SIntN m alt) = SExtN m λ x → dual (alt x)
-dual₁ (SExtN m alt) = SIntN m λ x → dual (alt x)
-dual₁ SEnd! = SEnd?
-dual₁ SEnd? = SEnd!
+force (eq-sym s1~s2) = eqF-sym (force s1~s2)
 
-dual (S1 x) = S1 (dual₁ x)
-dual (SMu x) = SMu (dual₁ x)
-dual (SVar x) = SVar x
+-- equivalence is transitive
+equivF-trans : ∀ s1 s2 s3 → EquivF Equiv s1 s2 → EquivF Equiv s2 s3 → EquivF Equiv s1 s3
+equiv-trans : ∀ s1 s2 s3 → Equiv s1 s2 → Equiv s2 s3 → Equiv s1 s3
 
-dual-involution₁ : ∀ {n} → (s : STy₁ n) → dual₁ (dual₁ s) ≡ s
-dual-involution : ∀ {n} → (s : STy₀ n) → dual (dual s) ≡ s
+force (equiv-trans s1 s2 s3 s1~s2 s2~s3) = equivF-trans (force s1) (force s2) (force s3) (force s1~s2) (force s2~s3)
 
-dual-involution₁ (SSend x s) = cong (SSend x) (dual-involution s)
-dual-involution₁ (SRecv x s) = cong (SRecv x) (dual-involution s)
-dual-involution₁ (SIntern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
-dual-involution₁ (SExtern s₁ s₂) rewrite dual-involution s₁ | dual-involution s₂ = refl
-dual-involution₁ (SIntN m alt) = cong (SIntN m) (ext λ x → dual-involution (alt x))
-dual-involution₁ (SExtN m alt) = cong (SExtN m) (ext λ x → dual-involution (alt x))
-dual-involution₁ SEnd! = refl
-dual-involution₁ SEnd? = refl
+equivF-trans (send .t _) (send .t _) (send .t _) (eq-send t x) (eq-send .t x₁) = eq-send t (equiv-trans _ _ _ x x₁)
+equivF-trans .(recv t _) .(recv t _) .(recv t _) (eq-recv t x) (eq-recv .t x₁) = eq-recv t (equiv-trans _ _ _ x x₁)
+equivF-trans .(sintern _ _) .(sintern _ _) .(sintern _ _) (eq-sintern x x₁) (eq-sintern x₂ x₃) = eq-sintern (equiv-trans _ _ _ x x₂) (equiv-trans _ _ _ x₁ x₃)
+equivF-trans .(sextern _ _) .(sextern _ _) .(sextern _ _) (eq-sextern x x₁) (eq-sextern x₂ x₃) = eq-sextern (equiv-trans _ _ _ x x₂) (equiv-trans _ _ _ x₁ x₃)
+equivF-trans .(sintN _ _) .(sintN _ _) .(sintN _ _) (eq-sintN x) (eq-sintN x₁) = eq-sintN λ i → equiv-trans _ _ _ (x i) (x₁ i)
+equivF-trans .(sextN _ _) .(sextN _ _) .(sextN _ _) (eq-sextN x) (eq-sextN x₁) = eq-sextN λ i → equiv-trans _ _ _ (x i) (x₁ i)
+equivF-trans .send! .send! .send! eq-send! eq-send! = eq-send!
+equivF-trans .send? .send? .send? eq-send? eq-send? = eq-send?
 
-dual-involution (S1 s) = cong S1 (dual-involution₁ s)
-dual-involution (SMu s) = cong SMu (dual-involution₁ s)
-dual-involution (SVar i) = refl
+-- dual
+dual : Session → Session
+dualF : SessionF Session → SessionF Session
 
-xdual : ∀ {n} → Bool → STy₀ n → STy₀ n
-xdual false s = dual s
-xdual true s = s
+force (dual s) = dualF (force s)
 
-slift-dual : ∀ {n} (s : STy₀ n) → dual (slift s) ≡ slift (dual s)
-slift-dual₁ : ∀ {n} (s : STy₁ n) → dual₁ (slift₁ s) ≡ slift₁ (dual₁ s)
+dualF (send t s) = recv t (dual s)
+dualF (recv t s) = send t (dual s)
+dualF (sintern s1 s2) = sextern (dual s1) (dual s2)
+dualF (sextern s1 s2) = sintern (dual s1) (dual s2)
+dualF (sintN m alt) = sextN m λ i → dual (alt i)
+dualF (sextN m alt) = sintN m λ i → dual (alt i)
+dualF send! = send?
+dualF send? = send!
 
-slift-dual (S1 s1) = cong S1 (slift-dual₁ s1)
-slift-dual (SMu s1) = cong SMu (slift-dual₁ s1)
-slift-dual (SVar i) = refl
+-- properties
 
-slift-dual₁ (SSend t s) = cong (SRecv t) (slift-dual s)
-slift-dual₁ (SRecv t s) = cong (SSend t) (slift-dual s)
-slift-dual₁ (SIntern s₁ s₂) = cong₂ SExtern (slift-dual s₁) (slift-dual s₂)
-slift-dual₁ (SExtern s₁ s₂) = cong₂ SIntern (slift-dual s₁) (slift-dual s₂)
-slift-dual₁ (SIntN m alt) = cong (SExtN m) (ext λ x → slift-dual (alt x))
-slift-dual₁ (SExtN m alt) = cong (SIntN m) (ext λ x → slift-dual (alt x))
-slift-dual₁ SEnd! = refl
-slift-dual₁ SEnd? = refl
+dual-involution : (s : Session) → s ≈ dual (dual s)
+dual-involutionF : (s : SessionF Session) → s ≈' dualF (dualF s)
 
-ssubst-dual₁ : ∀ {n} → (s1 : STy₁ 1) (s2 : STy₁ (n + 1))
-  → dual₁ (ssubst₁ {n} (SMu s1) s2) ≡ ssubst₁ {n} (SMu (dual₁ s1)) (dual₁ s2)
-ssubst-dual : ∀ {n} → (s1 : STy₁ 1) (s2 : STy₀ (n + 1))
-  → dual (ssubst {n} (SMu s1) s2) ≡ ssubst {n} (SMu (dual₁ s1)) (dual s2)
+force (dual-involution s) = dual-involutionF (force s)
 
-ssubst-dual₁ {n} s1 (SSend t s) = cong (SRecv t) (ssubst-dual {n} s1 s)
-ssubst-dual₁ {n} s1 (SRecv t s) = cong (SSend t) (ssubst-dual {n} s1 s)
-ssubst-dual₁ {n} s1 (SIntern s₁ s₂) = cong₂ SExtern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
-ssubst-dual₁ {n} s1 (SExtern s₁ s₂) = cong₂ SIntern (ssubst-dual {n} s1 s₁) (ssubst-dual {n} s1 s₂)
-ssubst-dual₁ {n} s1 (SIntN m alt) = cong (SExtN m) (ext λ x → ssubst-dual {n} s1 (alt x))
-ssubst-dual₁ {n} s1 (SExtN m alt) = cong (SIntN m) (ext λ x → ssubst-dual {n} s1 (alt x))
-ssubst-dual₁ s1 SEnd! = refl
-ssubst-dual₁ s1 SEnd? = refl
+dual-involutionF (send t s) = eq-send t (dual-involution s)
+dual-involutionF (recv t s) = eq-recv t (dual-involution s)
+dual-involutionF (sintern s1 s2) = eq-sintern (dual-involution s1) (dual-involution s2)
+dual-involutionF (sextern s1 s2) = eq-sextern (dual-involution s1) (dual-involution s2)
+dual-involutionF (sintN m alt) = eq-sintN λ i → dual-involution (alt i)
+dual-involutionF (sextN m alt) = eq-sextN λ i → dual-involution (alt i)
+dual-involutionF send! = eq-send!
+dual-involutionF send? = eq-send?
 
-ssubst-dual {n} s1 (S1 s2) = cong S1 (ssubst-dual₁ {n} s1 s2)
-ssubst-dual {n} s1 (SMu s2) = cong SMu (ssubst-dual₁ s1 s2)
-ssubst-dual {zero} s1 (SVar zero) = refl
-ssubst-dual {zero} s1 (SVar (suc i)) = refl
-ssubst-dual {suc n} s1 (SVar zero) = refl
-ssubst-dual {suc n} s1 (SVar (suc i)) rewrite slift-dual (ssubst {n} (SMu s1) (SVar i)) = cong slift (ssubst-dual {n} s1 (SVar i))
 
-unroll-dual : (s : STy₀ 0) → dual₁ (unroll s) ≡ unroll (dual s)
-unroll-dual (S1 s1) = refl
-unroll-dual (SMu s1) = ssubst-dual₁ s1 s1
-unroll-dual (SVar ())
 
--- linear and unrestricted types
-data Lin : Ty → Set where
-  LChan : ∀ {s} → Lin (TChan s)
-  LPair1 : ∀ {t₁ t₂} → Lin t₁ → Lin (TPair t₁ t₂)
-  LPair2 : ∀ {t₁ t₂} → Lin t₂ → Lin (TPair t₁ t₂)
-  LFun : ∀ {t₁ t₂} → Lin (TFun LL t₁ t₂)
+mutual
+  -- subtyping
+  data SubT : Type → Type → Set where
+    sub-unit : SubT TUnit TUnit
+    sub-int  : SubT TInt TInt
+    sub-pair : ∀ {t₁ t₂ t₁' t₂'} → SubT t₁ t₁' → SubT t₂ t₂' → SubT (TPair t₁ t₂) (TPair t₁' t₂')
+    sub-fun  : ∀ {t₁ t₂ t₁' t₂' lu} → SubT t₁' t₁ → SubT t₂ t₂' → SubT (TFun lu t₁ t₂) (TFun lu t₁' t₂')
+    sub-chan : ∀ {s s'} → SubF Sub s s' → SubT (TChan s) (TChan s')
 
-data Unr : Ty → Set where
+  -- session type subtyping
+  data SubF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
+    sub-send : ∀ {s1 s1'} → (t t' : Type) → SubT t' t → R s1 s1' → SubF R (send t s1) (send t' s1')
+    sub-recv : ∀ {s1 s1'} → (t t' : Type) → SubT t t' → R s1 s1' → SubF R (recv t s1) (recv t' s1')
+    sub-sintern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → SubF R (sintern s1 s2) (sintern s1' s2')
+    sub-sextern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → SubF R (sextern s1 s2) (sextern s1' s2')
+    sub-sintN : ∀ {m m' alt alt'} → (m'≤m : m' ≤ m) → ((i : Fin m') → R (alt (inject≤ i m'≤m)) (alt' i)) → SubF R (sintN m alt) (sintN m' alt')
+    sub-sextN : ∀ {m m' alt alt'} → (m≤m' : m ≤ m') → ((i : Fin m) → R (alt i) (alt' (inject≤ i m≤m'))) → SubF R (sextN m alt) (sextN m' alt')
+    sub-send! : SubF R send! send!
+    sub-send? : SubF R send? send?
+
+  record Sub (s1 : Session) (s2 : Session) : Set where
+    coinductive
+    field force : SubF Sub (force s1) (force s2)
+
+open Sub
+
+inject-refl : ∀ {m} → (i : Fin m) → inject≤ i ≤-refl ≡ i
+inject-refl zero = refl
+inject-refl (suc i) = cong suc (inject-refl i)
+
+inject-trans : ∀ {m m' m''} → (m'≤m : m' ≤ m) → (m''≤m' : m'' ≤ m') → (i : Fin m'')
+  → (inject≤ (inject≤ i m''≤m') m'≤m) ≡ (inject≤ i (≤-trans m''≤m' m'≤m))
+inject-trans z≤n z≤n ()
+inject-trans (s≤s m'≤m) z≤n ()
+inject-trans (s≤s m'≤m) (s≤s m''≤m') zero = refl
+inject-trans (s≤s m'≤m) (s≤s m''≤m') (suc i) = cong suc (inject-trans m'≤m m''≤m' i)
+
+-- subtyping is reflexive
+subt-refl : ∀ t → SubT t t
+subF-refl : ∀ s → SubF Sub s s
+sub-refl : ∀ s → Sub s s
+
+force (sub-refl s) = subF-refl (force s)
+
+subF-refl (send t s) = sub-send t t (subt-refl t) (sub-refl s)
+subF-refl (recv t s) = sub-recv t t (subt-refl t) (sub-refl s)
+subF-refl (sintern s1 s2) = sub-sintern (sub-refl s1) (sub-refl s2)
+subF-refl (sextern s1 s2) = sub-sextern (sub-refl s1) (sub-refl s2)
+subF-refl (sintN m alt) = sub-sintN ≤-refl auxInt
+  where
+    auxInt : (i : Fin m) → Sub (alt (inject≤ i ≤-refl)) (alt i)
+    auxInt i rewrite inject-refl i = sub-refl (alt i)
+subF-refl (sextN m alt) = sub-sextN ≤-refl auxExt
+  where
+    auxExt : (i : Fin m) → Sub (alt i) (alt (inject≤ i ≤-refl))
+    auxExt i rewrite inject-refl i = sub-refl (alt i)
+subF-refl send! = sub-send!
+subF-refl send? = sub-send?
+
+subt-refl TUnit = sub-unit
+subt-refl TInt = sub-int
+subt-refl (TPair t t₁) = sub-pair (subt-refl t) (subt-refl t₁)
+subt-refl (TChan s) = sub-chan (subF-refl s)
+subt-refl (TFun x t t₁) = sub-fun (subt-refl t) (subt-refl t₁)
+
+-- subtyping is transitive
+subt-trans : ∀ {t1 t2 t3} → SubT t1 t2 → SubT t2 t3 → SubT t1 t3
+sub-trans : ∀ {s1 s2 s3} → Sub s1 s2 → Sub s2 s3 → Sub s1 s3
+subF-trans : ∀ {s1 s2 s3} → SubF Sub s1 s2 → SubF Sub s2 s3 → SubF Sub s1 s3
+
+subt-trans sub-unit sub-unit = sub-unit
+subt-trans sub-int sub-int = sub-int
+subt-trans (sub-pair t1<:t2 t1<:t3) (sub-pair t2<:t3 t2<:t4) = sub-pair (subt-trans t1<:t2 t2<:t3) (subt-trans t1<:t3 t2<:t4)
+subt-trans (sub-fun t1<:t2 t1<:t3) (sub-fun t2<:t3 t2<:t4) = sub-fun (subt-trans t2<:t3 t1<:t2) (subt-trans t1<:t3 t2<:t4)
+subt-trans (sub-chan s1<:s2) (sub-chan s2<:s3) = sub-chan (subF-trans s1<:s2 s2<:s3)
+
+force (sub-trans s1<:s2 s2<:s3) = subF-trans (force s1<:s2) (force s2<:s3)
+
+subF-trans (sub-send t t' x x₁) (sub-send .t' t'' x₂ x₃) = sub-send t t'' (subt-trans x₂ x) (sub-trans x₁ x₃)
+subF-trans (sub-recv t t' x x₁) (sub-recv .t' t'' x₂ x₃) = sub-recv t t'' (subt-trans x x₂) (sub-trans x₁ x₃)
+subF-trans (sub-sintern x x₁) (sub-sintern x₂ x₃) = sub-sintern (sub-trans x x₂) (sub-trans x₁ x₃)
+subF-trans (sub-sextern x x₁) (sub-sextern x₂ x₃) = sub-sextern (sub-trans x x₂) (sub-trans x₁ x₃)
+subF-trans {sintN m alt}{sintN m' alt'}{sintN m'' alt''} (sub-sintN m'≤m palt) (sub-sintN m''≤m' palt') =
+  sub-sintN (≤-trans m''≤m' m'≤m) λ i → sub-trans (auxInt i) (palt' i)
+  where
+    auxInt : (i : Fin m'') → Sub (alt (inject≤ i (≤-trans m''≤m' m'≤m))) (alt' (inject≤ i m''≤m'))
+    auxInt i with palt (inject≤ i m''≤m')
+    ... | r rewrite (inject-trans  m'≤m m''≤m' i) = r
+subF-trans {sextN m alt}{sextN m' alt'}{sextN m'' alt''} (sub-sextN m≤m' palt) (sub-sextN m'≤m'' palt') =
+  sub-sextN (≤-trans m≤m' m'≤m'') λ i → sub-trans (palt i) (auxExt i)
+  where
+    auxExt : (i : Fin m) → Sub (alt' (inject≤ i m≤m')) (alt'' (inject≤ i (≤-trans m≤m' m'≤m'')))
+    auxExt i with palt' (inject≤ i m≤m')
+    ... | r rewrite (inject-trans m'≤m'' m≤m' i) = r
+subF-trans sub-send! sub-send! = sub-send!
+subF-trans sub-send? sub-send? = sub-send?
+
+-- unrestricted
+data Unr : Type → Set where
   UUnit : Unr TUnit
   UInt : Unr TInt
   UPair : ∀ {t₁ t₂} → Unr t₁ → Unr t₂ → Unr (TPair t₁ t₂)
   UFun :  ∀ {t₁ t₂} → Unr (TFun UU t₁ t₂)
 
-
--- lin and unr are mutually exclusive
-lemma-lin-unr : ∀ {t} → Lin t → ¬ Unr t
-lemma-lin-unr LChan ()
-lemma-lin-unr (LPair1 lint) (UPair x x₁) = lemma-lin-unr lint x
-lemma-lin-unr (LPair2 lint) (UPair x x₁) = lemma-lin-unr lint x₁
-lemma-lin-unr LFun = λ ()
-
-lemma-unr-lin : ∀  {t} → Unr t → ¬ Lin t
-lemma-unr-lin UUnit ()
-lemma-unr-lin UInt ()
-lemma-unr-lin (UPair unr unr₁) (LPair1 lin) = lemma-unr-lin unr lin
-lemma-unr-lin (UPair unr unr₁) (LPair2 lin) = lemma-unr-lin unr₁ lin
-lemma-unr-lin UFun = λ ()
-
--- should be expressible by pattern matching lambda, but ...
-destroy-left : ∀ {t₁ t₂} → ¬ Unr t₁ → ¬ Unr (TPair t₁ t₂)
-destroy-left ¬p (UPair u₁ u₂) = ¬p u₁
-
-destroy-right : ∀ {t₁ t₂} → ¬ Unr t₂ → ¬ Unr (TPair t₁ t₂)
-destroy-right ¬p (UPair u₁ u₂) = ¬p u₂
-
-unrestricted-type : (t : Ty) → Dec (Unr t)
-unrestricted-type TUnit = yes UUnit
-unrestricted-type TInt = yes UInt
-unrestricted-type (TPair t₁ t₂) with unrestricted-type t₁ | unrestricted-type t₂
-unrestricted-type (TPair t₁ t₂) | yes p | yes p₁ = yes (UPair p p₁)
-unrestricted-type (TPair t₁ t₂) | yes p | no ¬p = no (destroy-right ¬p)
-unrestricted-type (TPair t₁ t₂) | no ¬p | yes p = no (destroy-left ¬p)
-unrestricted-type (TPair t₁ t₂) | no ¬p | no ¬p₁ = no (destroy-left ¬p)
-unrestricted-type (TChan x) = no (λ ())
-unrestricted-type (TFun LL t₁ t₂) = no (λ ())
-unrestricted-type (TFun UU t₁ t₂) = yes UFun
-
-
-destroy-both : ∀ {t₁ t₂} → ¬ Lin t₁ → ¬ Lin t₂ → ¬ Lin (TPair t₁ t₂)
-destroy-both ¬l₁ ¬l₂ (LPair1 ltp) = ¬l₁ ltp
-destroy-both ¬l₁ ¬l₂ (LPair2 ltp) = ¬l₂ ltp
-
-linear-type : (t : Ty) → Dec (Lin t)
-linear-type TUnit = no (λ ())
-linear-type TInt = no (λ ())
-linear-type (TPair t₁ t₂) with linear-type t₁ | linear-type t₂
-linear-type (TPair t₁ t₂) | yes p | yes p₁ = yes (LPair1 p)
-linear-type (TPair t₁ t₂) | yes p | no ¬p = yes (LPair1 p)
-linear-type (TPair t₁ t₂) | no ¬p | yes p = yes (LPair2 p)
-linear-type (TPair t₁ t₂) | no ¬p | no ¬p₁ = no (destroy-both ¬p ¬p₁)
-linear-type (TChan x) = yes LChan
-linear-type (TFun LL t₁ t₂) = yes LFun
-linear-type (TFun UU t₁ t₂) = no (λ ())
-
-
-classify-type : (t : Ty) → Lin t ⊎ Unr t
-classify-type TUnit = inj₂ UUnit
-classify-type TInt = inj₂ UInt
+classify-type : (t : Type) → Maybe (Unr t)
+classify-type TUnit = just UUnit
+classify-type TInt = just UInt
 classify-type (TPair t₁ t₂) with classify-type t₁ | classify-type t₂
-classify-type (TPair t₁ t₂) | inj₁ x | inj₁ x₁ = inj₁ (LPair1 x)
-classify-type (TPair t₁ t₂) | inj₁ x | inj₂ y = inj₁ (LPair1 x)
-classify-type (TPair t₁ t₂) | inj₂ y | inj₁ x = inj₁ (LPair2 x)
-classify-type (TPair t₁ t₂) | inj₂ y | inj₂ y₁ = inj₂ (UPair y y₁)
-classify-type (TChan x) = inj₁ LChan
-classify-type (TFun LL t₁ t₂) = inj₁ LFun
-classify-type (TFun UU t₁ t₂) = inj₂ UFun
+classify-type (TPair t₁ t₂) | just x | just x₁ = just (UPair x x₁)
+classify-type (TPair t₁ t₂) | just x | nothing = nothing
+classify-type (TPair t₁ t₂) | nothing | just x = nothing
+classify-type (TPair t₁ t₂) | nothing | nothing = nothing
+classify-type (TChan x) = nothing
+classify-type (TFun LL t₁ t₂) = nothing
+classify-type (TFun UU t₁ t₂) = just UFun
 
--- typing context
-TCtx : Set
-TCtx = List Ty
+
+
+TCtx = List Type
 
 -- context splitting, respecting linearity
 data Split : TCtx → TCtx → TCtx → Set where
@@ -244,19 +263,42 @@ data Split : TCtx → TCtx → TCtx → Set where
   left : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) Φ₂
   rght : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ (t ∷ Φ₂)
 
--- split the unrestricted part from a typing context
-split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ φ'
-split-refl-left [] = [] , [] , []
-split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
-split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₁ x = φ' , unr-φ' , left sp'
-split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | inj₂ y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
-
 -- split is symmetric
 split-sym : ∀ {φ φ₁ φ₂} → Split φ φ₁ φ₂ → Split φ φ₂ φ₁
 split-sym [] = []
 split-sym (unr x sp) = unr x (split-sym sp)
 split-sym (left sp) = rght (split-sym sp)
 split-sym (rght sp) = left (split-sym sp)
+
+split-unr : ∀ {φ φ₁ φ₂} → (sp : Split φ φ₁ φ₂) → All Unr φ₁ → All Unr φ₂ → All Unr φ
+split-unr [] [] [] = []
+split-unr (unr x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
+split-unr (left sp) (px ∷ unr1) unr2 = px ∷ split-unr sp unr1 unr2
+split-unr (rght sp) unr1 (px ∷ unr2) = px ∷ split-unr sp unr1 unr2
+
+split-all-left : (φ : TCtx) → Split φ φ []
+split-all-left [] = []
+split-all-left (x ∷ φ) = left (split-all-left φ)
+
+split-all-right : (φ : TCtx) → Split φ [] φ
+split-all-right [] = []
+split-all-right (x ∷ φ) = rght (split-all-right φ)
+
+-- split the unrestricted part from a typing context
+split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ φ'
+split-refl-left [] = [] , [] , []
+split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | nothing = φ' , unr-φ' , left sp'
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | just y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
+
+split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
+split-all-unr [] = []
+split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
+
+split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
+split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
+split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
+... | φ' , sp = t ∷ φ' , left sp
 
 -- reorganize splits
 split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
@@ -277,31 +319,10 @@ split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
 split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
 
-split-all-left : (φ : TCtx) → Split φ φ []
-split-all-left [] = []
-split-all-left (x ∷ φ) = left (split-all-left φ)
 
-split-all-right : (φ : TCtx) → Split φ [] φ
-split-all-right [] = []
-split-all-right (x ∷ φ) = rght (split-all-right φ)
-
-split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
-split-all-unr [] = []
-split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
-
-split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
-split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
-split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
-... | φ' , sp = t ∷ φ' , left sp
-
-split-unr : ∀ {φ φ₁ φ₂} → (sp : Split φ φ₁ φ₂) → All Unr φ₁ → All Unr φ₂ → All Unr φ
-split-unr [] [] [] = []
-split-unr (unr x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
-split-unr (left sp) (px ∷ unr1) unr2 = px ∷ split-unr sp unr1 unr2
-split-unr (rght sp) unr1 (px ∷ unr2) = px ∷ split-unr sp unr1 unr2
 
 -- extract from type context where all other entries are unrestricted
-data _∈_ (x : Ty) : TCtx → Set where
+data _∈_ (x : Type) : List Type → Set where
   here  : ∀ { xs } → All Unr xs → x ∈ (x ∷ xs)
   there : ∀ { x₀ xs } → Unr x₀ → x ∈ xs → x ∈ (x₀ ∷ xs)
 
@@ -312,4 +333,3 @@ data Selector : Set where
 selection : ∀ {A : Set} → Selector → A → A → A
 selection Left x y = x
 selection Right x y = y
-

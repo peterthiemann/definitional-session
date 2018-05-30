@@ -15,7 +15,7 @@ open import Channel
 
 mutual
 -- a value indexed by a *relevant* session context, which is "used up" by the value
-  data Val (G : SCtx) : Ty → Set where
+  data Val (G : SCtx) : Type → Set where
     VUnit : (inaG : Inactive G)
       → Val G TUnit
     VInt  : (i : ℕ)

@@ -9,7 +9,7 @@ open import Data.Product
 open import Typing
 
 -- expressions
-data Expr : (φ : TCtx) → Ty → Set where
+data Expr : (φ : List Type) → Type → Set where
   var : ∀ {t φ}
       → (x : t ∈ φ)
       → Expr φ t
@@ -47,54 +47,49 @@ data Expr : (φ : TCtx) → Ty → Set where
 
   new : ∀ {φ}
       → (unr-φ : All Unr φ)
-      → (s : STy)
-      → let s₁ = unroll s in
-        Expr φ (TPair (TChan s₁) (TChan (dual₁ s₁)))
+      → (s : Session)
+      → Expr φ (TPair (TChan (Session.force s)) (TChan (Session.force (dual s))))
 
   -- takes only variables to avoid extraneous effects
   send : ∀ {φ φ₁ φ₂ s t}
       → (sp : Split φ φ₁ φ₂)
-      → (ch : (TChan (SSend t s)) ∈ φ₁)
+      → (ch : (TChan (send t s)) ∈ φ₁)
       → (vv : t ∈ φ₂)
-      → let s₁ = unroll s in
-        Expr φ (TChan s₁)
+      → Expr φ (TChan (Session.force s))
   -- takes only variables to avoid extraneous effects
   recv : ∀ {φ s t}
-      → (ch : (TChan (SRecv t s)) ∈ φ)
-      → let s₁ = unroll s in
-        Expr φ (TPair (TChan s₁) t)
+      → (ch : (TChan (recv t s)) ∈ φ)
+      → Expr φ (TPair (TChan (Session.force s)) t)
 
   close : ∀ { φ}
-      → (ch : TChan SEnd! ∈ φ)
+      → (ch : TChan send! ∈ φ)
       → Expr φ TUnit
 
   wait : ∀ { φ}
-      → (ch : TChan SEnd? ∈ φ)
+      → (ch : TChan send? ∈ φ)
       → Expr φ TUnit
 
   select : ∀ {s₁ s₂ φ}
       → (lab : Selector)
-      → (ch : TChan (SIntern s₁ s₂) ∈ φ)
-      → let s₁' = unroll s₁
-            s₂' = unroll s₂ in
-        Expr φ (TChan (selection lab s₁' s₂'))
+      → (ch : TChan (sintern s₁ s₂) ∈ φ)
+      → Expr φ (TChan (selection lab (Session.force s₁) (Session.force s₂)))
 
   branch : ∀ {s₁ s₂ φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
-      → (ch : TChan (SExtern s₁ s₂) ∈ φ₁)
-      → (eleft : Expr (TChan (unroll s₁) ∷ φ₂) t)
-      → (erght : Expr (TChan (unroll s₂) ∷ φ₂) t)
+      → (ch : TChan (sextern s₁ s₂) ∈ φ₁)
+      → (eleft : Expr (TChan (Session.force s₁) ∷ φ₂) t)
+      → (erght : Expr (TChan (Session.force s₂) ∷ φ₂) t)
       → Expr φ t
 
   nselect : ∀ {m alt φ}
       → (lab : Fin m)
-      → (ch : TChan (SIntN m alt) ∈ φ)
-      → Expr φ (TChan (unroll (alt lab)))
+      → (ch : TChan (sintN m alt) ∈ φ)
+      → Expr φ (TChan (Session.force (alt lab)))
 
   nbranch : ∀ {m alt φ φ₁ φ₂ t}
       → (sp : Split φ φ₁ φ₂)
-      → (ch : TChan (SExtN m alt) ∈ φ₁)
-      → (ealts : (i : Fin m) → Expr (TChan (unroll (alt i)) ∷ φ₂) t)
+      → (ch : TChan (sextN m alt) ∈ φ₁)
+      → (ealts : (i : Fin m) → Expr (TChan (Session.force (alt i)) ∷ φ₂) t)
       → Expr φ t
 
   ulambda : ∀ {φ φ₁ φ₂ t₁ t₂}
