@@ -89,19 +89,19 @@ eqF-sym eq-send? = eq-send?
 force (eq-sym s1~s2) = eqF-sym (force s1~s2)
 
 -- equivalence is transitive
-equivF-trans : ∀ s1 s2 s3 → EquivF Equiv s1 s2 → EquivF Equiv s2 s3 → EquivF Equiv s1 s3
-equiv-trans : ∀ s1 s2 s3 → Equiv s1 s2 → Equiv s2 s3 → Equiv s1 s3
+equivF-trans : ∀ {s1 s2 s3} → EquivF Equiv s1 s2 → EquivF Equiv s2 s3 → EquivF Equiv s1 s3
+equiv-trans : ∀ {s1 s2 s3} → Equiv s1 s2 → Equiv s2 s3 → Equiv s1 s3
 
-force (equiv-trans s1 s2 s3 s1~s2 s2~s3) = equivF-trans (force s1) (force s2) (force s3) (force s1~s2) (force s2~s3)
+force (equiv-trans s1~s2 s2~s3) = equivF-trans (force s1~s2) (force s2~s3)
 
-equivF-trans (send .t _) (send .t _) (send .t _) (eq-send t x) (eq-send .t x₁) = eq-send t (equiv-trans _ _ _ x x₁)
-equivF-trans .(recv t _) .(recv t _) .(recv t _) (eq-recv t x) (eq-recv .t x₁) = eq-recv t (equiv-trans _ _ _ x x₁)
-equivF-trans .(sintern _ _) .(sintern _ _) .(sintern _ _) (eq-sintern x x₁) (eq-sintern x₂ x₃) = eq-sintern (equiv-trans _ _ _ x x₂) (equiv-trans _ _ _ x₁ x₃)
-equivF-trans .(sextern _ _) .(sextern _ _) .(sextern _ _) (eq-sextern x x₁) (eq-sextern x₂ x₃) = eq-sextern (equiv-trans _ _ _ x x₂) (equiv-trans _ _ _ x₁ x₃)
-equivF-trans .(sintN _ _) .(sintN _ _) .(sintN _ _) (eq-sintN x) (eq-sintN x₁) = eq-sintN λ i → equiv-trans _ _ _ (x i) (x₁ i)
-equivF-trans .(sextN _ _) .(sextN _ _) .(sextN _ _) (eq-sextN x) (eq-sextN x₁) = eq-sextN λ i → equiv-trans _ _ _ (x i) (x₁ i)
-equivF-trans .send! .send! .send! eq-send! eq-send! = eq-send!
-equivF-trans .send? .send? .send? eq-send? eq-send? = eq-send?
+equivF-trans (eq-send t x) (eq-send .t x₁) = eq-send t (equiv-trans x x₁)
+equivF-trans (eq-recv t x) (eq-recv .t x₁) = eq-recv t (equiv-trans x x₁)
+equivF-trans (eq-sintern x x₁) (eq-sintern x₂ x₃) = eq-sintern (equiv-trans x x₂) (equiv-trans x₁ x₃)
+equivF-trans (eq-sextern x x₁) (eq-sextern x₂ x₃) = eq-sextern (equiv-trans x x₂) (equiv-trans x₁ x₃)
+equivF-trans (eq-sintN x) (eq-sintN x₁) = eq-sintN λ i → equiv-trans (x i) (x₁ i)
+equivF-trans (eq-sextN x) (eq-sextN x₁) = eq-sextN λ i → equiv-trans (x i) (x₁ i)
+equivF-trans eq-send! eq-send! = eq-send!
+equivF-trans eq-send? eq-send? = eq-send?
 
 -- dual
 dual : Session → Session
