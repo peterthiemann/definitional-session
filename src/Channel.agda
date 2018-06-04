@@ -16,7 +16,7 @@ open import Global
 -- the main part of a channel endpoint value is a valid channel reference
 -- the boolean determines whether it's the front end or the back end of the channel
 -- enforces that the session context has only one channel
-data ValidChannelRef : (G : SCtx) (b : Bool) (s : SessionF Session) → Set where
+data ValidChannelRef : (G : SCtx) (b : Bool) (s : STypeF SType) → Set where
   here-pos : ∀ {s} {G : SCtx}
     → (ina-G : Inactive G)
     → ValidChannelRef (just (s , POS) ∷ G) true s
@@ -55,8 +55,8 @@ vcr-match-sr : ∀ {G G₁ G₂ b₁ b₂ s₁ s₂ t₁ t₂}
   → Maybe (t₁ ≡ t₂ × s₁ ≈ dual s₂ ×
           Σ SCtx λ G' → Σ SCtx λ G₁' → Σ SCtx λ G₂' →
           SSplit G' G₁' G₂' ×
-          ValidChannelRef G₁' b₁ (Session.force s₁) ×
-          ValidChannelRef G₂' b₂ (Session.force s₂))
+          ValidChannelRef G₁' b₁ (SType.force s₁) ×
+          ValidChannelRef G₂' b₂ (SType.force s₂))
 vcr-match-sr ss-[] () vcr-send
 vcr-match-sr (ss-both ss) (there vcr-recv) (there vcr-send) with vcr-match-sr ss vcr-recv vcr-send
 vcr-match-sr (ss-both ss) (there vcr-recv) (there vcr-send) | just (t₁≡t₂ , s₁≡ds₂ , G , G₁ , G₂ , x) = just (t₁≡t₂ , s₁≡ds₂ , nothing ∷ G , nothing ∷ G₁ , nothing ∷ G₂ , vcr-there x)
@@ -83,8 +83,8 @@ vcr-match-2-sr : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁ s₂ t₁ t₂}
   → Maybe (t₁ ≡ t₂ × s₁ ≈ dual s₂ ×
           Σ SCtx λ G' → Σ SCtx λ G₁' → Σ SCtx λ G₁₁' → Σ SCtx λ G₁₂' →
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
-          ValidChannelRef G₁₁' b₁ (Session.force s₁) ×
-          ValidChannelRef G₁₂' b₂ (Session.force s₂))
+          ValidChannelRef G₁₁' b₁ (SType.force s₁) ×
+          ValidChannelRef G₁₂' b₂ (SType.force s₂))
 vcr-match-2-sr {G₁ = .[]} (ssplit2 ss-[] ss-[]) () vcr-send
 vcr-match-2-sr {G₁ = .(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) with vcr-match-2-sr (ssplit2 ss1 ss2) vcr-recv vcr-send
 vcr-match-2-sr {_} {.(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-recv) (there vcr-send) | nothing = nothing
@@ -145,8 +145,8 @@ vcr-match-2-sb : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ s₁₁ s₁₂ s₂
   → Maybe (s₁₁ ≈ dual s₂₁ × s₁₂ ≈ dual s₂₂ ×
           Σ SCtx λ G' → Σ SCtx λ G₁' → Σ SCtx λ G₁₁' → Σ SCtx λ G₁₂' →
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
-          ValidChannelRef G₁₁' b₁ (selection lab (Session.force s₁₁) (Session.force s₁₂)) ×
-          ValidChannelRef G₁₂' b₂ (selection lab (Session.force s₂₁) (Session.force s₂₂)))
+          ValidChannelRef G₁₁' b₁ (selection lab (SType.force s₁₁) (SType.force s₁₂)) ×
+          ValidChannelRef G₁₂' b₂ (selection lab (SType.force s₂₁) (SType.force s₂₂)))
 vcr-match-2-sb (ssplit2 ss-[] ss-[]) () vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab with vcr-match-2-sb (ssplit2 ss1 ss2) vcr-int vcr-ext lab
 vcr-match-2-sb (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab | just (ds11=s21 , ds12=s22 , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-int' , vcr-ext') = just (ds11=s21 , ds12=s22 , _ , _ , _ , _ , ssplit2 (ss-both ss1') (ss-both ss2') , there vcr-int' , there vcr-ext')
@@ -213,8 +213,8 @@ vcr-match-2-nsb : ∀ {G G₁ G₂ G₁₁ G₁₂ b₁ b₂ m₁ m₂ alti alte
           ((i : Fin m₁) → dual (alti i) ≈ alte i) ×
           Σ SCtx λ G' → Σ SCtx λ G₁' → Σ SCtx λ G₁₁' → Σ SCtx λ G₁₂' →
           SSplit2 G' G₁' G₂ G₁₁' G₁₂' ×
-          ValidChannelRef G₁₁' b₁ (Session.force (alti lab)) ×
-          ValidChannelRef G₁₂' b₂ (Session.force (alte lab))})
+          ValidChannelRef G₁₁' b₁ (SType.force (alti lab)) ×
+          ValidChannelRef G₁₂' b₂ (SType.force (alte lab))})
 vcr-match-2-nsb {G₁ = .[]} (ssplit2 ss-[] ss-[]) () vcr-ext lab
 vcr-match-2-nsb {G₁ = .(nothing ∷ _)} (ssplit2 (ss-both ss1) (ss-both ss2)) (there vcr-int) (there vcr-ext) lab =
   map (λ{ (refl , dai=ae , G' , G₁' , G₁₁' , G₁₂' , ssplit2 ss1' ss2' , vcr-int' , vcr-ext') → refl , dai=ae , _ , _ , _ , _ , ssplit2 (ss-both ss1') (ss-both ss2') , (there vcr-int') , (there vcr-ext') }) (vcr-match-2-nsb (ssplit2 ss1 ss2) vcr-int vcr-ext lab)
@@ -241,7 +241,7 @@ vcr-match-2-nsb {G₁ = just (s , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-righ
 vcr-match-2-nsb {G₁ = (just (sintN m alti , POSNEG) ∷ _)} (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G) (here-neg ina-G₁) lab =
   just (refl , (λ i → equiv-refl _) , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-posneg ss2) , here-pos ina-G , helper)
   where 
-    helper : ValidChannelRef (just (Session.force (alti lab) , NEG) ∷ _) false (Session.force (dual (alti lab)))
+    helper : ValidChannelRef (just (SType.force (alti lab) , NEG) ∷ _) false (SType.force (dual (alti lab)))
     helper = here-neg ina-G₁
 vcr-match-2-nsb {G₁ = just (send t s , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
 vcr-match-2-nsb {G₁ = just (recv t s , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
@@ -251,7 +251,7 @@ vcr-match-2-nsb {G₁ = just (sintN m alt , POSNEG) ∷ _} (ssplit2 (ss-left ss1
 vcr-match-2-nsb {G₁ = just (sextN m alt , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-negpos ss2)) (here-neg ina-G) (here-pos ina-G₁) lab =
   just (refl , (λ i → eq-sym (dual-involution _)) , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-negpos ss2) , helper , here-pos ina-G₁)
   where
-    helper : ValidChannelRef (just (Session.force (alt lab) , NEG) ∷ _) false (Session.force (dual (alt lab)))
+    helper : ValidChannelRef (just (SType.force (alt lab) , NEG) ∷ _) false (SType.force (dual (alt lab)))
     helper = here-neg ina-G
 vcr-match-2-nsb {G₁ = just (send! , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab
 vcr-match-2-nsb {G₁ = just (send? , POSNEG) ∷ _} (ssplit2 (ss-left ss1) (ss-negpos ss2)) () vcr-ext lab

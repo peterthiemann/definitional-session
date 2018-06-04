@@ -6,7 +6,7 @@ open import Data.Nat
 open import Data.List
 open import Data.List.All
 
-open import Typing hiding (Session)
+open import Typing
 open import Syntax
 open import Global
 open import Channel

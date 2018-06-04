@@ -12,7 +12,7 @@ data PosNeg : Set where
   POS NEG POSNEG : PosNeg
 
 -- global session context
-SEntry = Maybe (SessionF Session × PosNeg)
+SEntry = Maybe (STypeF SType × PosNeg)
 SCtx = List SEntry
 
 -- SSplit G G₁ G₂

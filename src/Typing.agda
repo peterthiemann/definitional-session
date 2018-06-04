@@ -21,24 +21,24 @@ mutual
   data Type : Set where
     TUnit TInt : Type
     TPair : Type → Type → Type
-    TChan : SessionF Session → Type
+    TChan : STypeF SType → Type
     TFun  : LU → Type → Type → Type
   
-  data SessionF (S : Set) : Set where
-    send recv : (t : Type) → (s : S) → SessionF S
-    sintern sextern : (s1 : S) (s2 : S) → SessionF S
-    sintN sextN : (m : ℕ) (alt : Fin m → S) → SessionF S
-    send! send? : SessionF S
+  data STypeF (S : Set) : Set where
+    send recv : (t : Type) → (s : S) → STypeF S
+    sintern sextern : (s1 : S) (s2 : S) → STypeF S
+    sintN sextN : (m : ℕ) (alt : Fin m → S) → STypeF S
+    send! send? : STypeF S
 
-  record Session : Set where
+  record SType : Set where
     coinductive 
     constructor delay
-    field force : SessionF Session
+    field force : STypeF SType
 
-open Session
+open SType
 
 -- session type equivalence
-data EquivF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
+data EquivF (R : SType → SType → Set) : STypeF SType → STypeF SType → Set where
   eq-send : ∀ {s1 s1'} → (t : Type) → R s1 s1' → EquivF R (send t s1) (send t s1')
   eq-recv : ∀ {s1 s1'} → (t : Type) → R s1 s1' → EquivF R (recv t s1) (recv t s1')
   eq-sintern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → EquivF R (sintern s1 s2) (sintern s1' s2')
@@ -48,7 +48,7 @@ data EquivF (R : Session → Session → Set) : SessionF Session → SessionF Se
   eq-send! : EquivF R send! send!
   eq-send? : EquivF R send? send?
 
-record Equiv (s1 : Session) (s2 : Session) : Set where
+record Equiv (s1 : SType) (s2 : SType) : Set where
   coinductive
   field force : EquivF Equiv (force s1) (force s2)
 
@@ -104,8 +104,8 @@ equivF-trans eq-send! eq-send! = eq-send!
 equivF-trans eq-send? eq-send? = eq-send?
 
 -- dual
-dual : Session → Session
-dualF : SessionF Session → SessionF Session
+dual : SType → SType
+dualF : STypeF SType → STypeF SType
 
 force (dual s) = dualF (force s)
 
@@ -120,8 +120,8 @@ dualF send? = send!
 
 -- properties
 
-dual-involution : (s : Session) → s ≈ dual (dual s)
-dual-involutionF : (s : SessionF Session) → s ≈' dualF (dualF s)
+dual-involution : (s : SType) → s ≈ dual (dual s)
+dual-involutionF : (s : STypeF SType) → s ≈' dualF (dualF s)
 
 force (dual-involution s) = dual-involutionF (force s)
 
@@ -146,7 +146,7 @@ mutual
     sub-chan : ∀ {s s'} → SubF Sub s s' → SubT (TChan s) (TChan s')
 
   -- session type subtyping
-  data SubF (R : Session → Session → Set) : SessionF Session → SessionF Session → Set where
+  data SubF (R : SType → SType → Set) : STypeF SType → STypeF SType → Set where
     sub-send : ∀ {s1 s1'} → (t t' : Type) → SubT t' t → R s1 s1' → SubF R (send t s1) (send t' s1')
     sub-recv : ∀ {s1 s1'} → (t t' : Type) → SubT t t' → R s1 s1' → SubF R (recv t s1) (recv t' s1')
     sub-sintern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → SubF R (sintern s1 s2) (sintern s1' s2')
@@ -156,7 +156,7 @@ mutual
     sub-send! : SubF R send! send!
     sub-send? : SubF R send? send?
 
-  record Sub (s1 : Session) (s2 : Session) : Set where
+  record Sub (s1 : SType) (s2 : SType) : Set where
     coinductive
     field force : SubF Sub (force s1) (force s2)
 
