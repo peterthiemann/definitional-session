@@ -147,10 +147,10 @@ mutual
 
   -- session type subtyping
   data SubF (R : SType → SType → Set) : STypeF SType → STypeF SType → Set where
-    sub-send : ∀ {s1 s1'} → (t t' : Type) → SubT t' t → R s1 s1' → SubF R (send t s1) (send t' s1')
-    sub-recv : ∀ {s1 s1'} → (t t' : Type) → SubT t t' → R s1 s1' → SubF R (recv t s1) (recv t' s1')
-    sub-sintern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → SubF R (sintern s1 s2) (sintern s1' s2')
-    sub-sextern : ∀ {s1 s1' s2 s2'} → R s1 s1' → R s2 s2' → SubF R (sextern s1 s2) (sextern s1' s2')
+    sub-send : ∀ {s1 s1'} → (t t' : Type) → (t'<=t : SubT t' t) → (s1<=s1' : R s1 s1') → SubF R (send t s1) (send t' s1')
+    sub-recv : ∀ {s1 s1'} → (t t' : Type) → (t<=t' : SubT t t') → (s1<=s1' : R s1 s1') → SubF R (recv t s1) (recv t' s1')
+    sub-sintern : ∀ {s1 s1' s2 s2'} → (s1<=s1' : R s1 s1') → (s2<=s2' : R s2 s2') → SubF R (sintern s1 s2) (sintern s1' s2')
+    sub-sextern : ∀ {s1 s1' s2 s2'} → (s1<=s1' : R s1 s1') → (s2<=s2' : R s2 s2') → SubF R (sextern s1 s2) (sextern s1' s2')
     sub-sintN : ∀ {m m' alt alt'} → (m'≤m : m' ≤ m) → ((i : Fin m') → R (alt (inject≤ i m'≤m)) (alt' i)) → SubF R (sintN m alt) (sintN m' alt')
     sub-sextN : ∀ {m m' alt alt'} → (m≤m' : m ≤ m') → ((i : Fin m) → R (alt i) (alt' (inject≤ i m≤m'))) → SubF R (sextN m alt) (sextN m' alt')
     sub-send! : SubF R send! send!
@@ -161,6 +161,9 @@ mutual
     field force : SubF Sub (force s1) (force s2)
 
 open Sub
+
+_≲_ = Sub
+_≲'_ = SubF Sub
 
 inject-refl : ∀ {m} → (i : Fin m) → inject≤ i ≤-refl ≡ i
 inject-refl zero = refl
@@ -175,8 +178,8 @@ inject-trans (s≤s m'≤m) (s≤s m''≤m') (suc i) = cong suc (inject-trans m'
 
 -- subtyping is reflexive
 subt-refl : ∀ t → SubT t t
-subF-refl : ∀ s → SubF Sub s s
-sub-refl : ∀ s → Sub s s
+subF-refl : ∀ s → s ≲' s
+sub-refl : ∀ s → s ≲ s
 
 force (sub-refl s) = subF-refl (force s)
 
@@ -203,8 +206,8 @@ subt-refl (TFun x t t₁) = sub-fun (subt-refl t) (subt-refl t₁)
 
 -- subtyping is transitive
 subt-trans : ∀ {t1 t2 t3} → SubT t1 t2 → SubT t2 t3 → SubT t1 t3
-sub-trans : ∀ {s1 s2 s3} → Sub s1 s2 → Sub s2 s3 → Sub s1 s3
-subF-trans : ∀ {s1 s2 s3} → SubF Sub s1 s2 → SubF Sub s2 s3 → SubF Sub s1 s3
+sub-trans : ∀ {s1 s2 s3} → s1 ≲ s2 → s2 ≲ s3 → s1 ≲ s3
+subF-trans : ∀ {s1 s2 s3} → s1 ≲' s2 → s2 ≲' s3 → s1 ≲' s3
 
 subt-trans sub-unit sub-unit = sub-unit
 subt-trans sub-int sub-int = sub-int
@@ -232,6 +235,43 @@ subF-trans {sextN m alt}{sextN m' alt'}{sextN m'' alt''} (sub-sextN m≤m' palt)
     ... | r rewrite (inject-trans m'≤m'' m≤m' i) = r
 subF-trans sub-send! sub-send! = sub-send!
 subF-trans sub-send? sub-send? = sub-send?
+
+-- duality and subtyping
+dual-sub : ∀ {s1 s2} → s1 ≲ s2 → dual s2 ≲ dual s1
+dual-subF : ∀ {s1 s2} → s1 ≲' s2 → dualF s2 ≲' dualF s1
+
+force (dual-sub s1<=s2) = dual-subF (force s1<=s2)
+
+dual-subF (sub-send t t' t'<=t s1<=s1') = sub-recv t' t t'<=t (dual-sub s1<=s1')
+dual-subF (sub-recv t t' t<=t' s1<=s1') = sub-send t' t t<=t' (dual-sub s1<=s1')
+dual-subF (sub-sintern s1<=s1' s2<=s2') = sub-sextern (dual-sub s1<=s1') (dual-sub s2<=s2')
+dual-subF (sub-sextern s1<=s1' s2<=s2') = sub-sintern (dual-sub s1<=s1') (dual-sub s2<=s2')
+dual-subF (sub-sintN m'≤m x) = sub-sextN m'≤m λ i → dual-sub (x i)
+dual-subF (sub-sextN m≤m' x) = sub-sintN m≤m' λ i → dual-sub (x i)
+dual-subF sub-send! = sub-send?
+dual-subF sub-send? = sub-send!
+
+-- equivalence and subtyping
+eq-implies-sub : ∀ {s1 s2} → s1 ≈ s2 → s1 ≲ s2
+eqF-implies-subF : ∀ {s1 s2} → s1 ≈' s2 → s1 ≲' s2
+
+force (eq-implies-sub s1~s2) = eqF-implies-subF (force s1~s2)
+
+eqF-implies-subF (eq-send t x) = sub-send t t (subt-refl t) (eq-implies-sub x)
+eqF-implies-subF (eq-recv t x) = sub-recv t t (subt-refl t) (eq-implies-sub x)
+eqF-implies-subF (eq-sintern x x₁) = sub-sintern (eq-implies-sub x) (eq-implies-sub x₁)
+eqF-implies-subF (eq-sextern x x₁) = sub-sextern (eq-implies-sub x) (eq-implies-sub x₁)
+eqF-implies-subF {sintN m alt} {sintN .m alt'} (eq-sintN x) = sub-sintN ≤-refl auxInt
+  where
+    auxInt : (i : Fin m) → Sub (alt (inject≤ i ≤-refl)) (alt' i)
+    auxInt i rewrite inject-refl i = eq-implies-sub (x i)
+eqF-implies-subF {sextN m alt} {sextN .m alt'} (eq-sextN x) = sub-sextN ≤-refl auxExt
+  where
+    auxExt : (i : Fin m) → Sub (alt i) (alt' (inject≤ i ≤-refl))
+    auxExt i rewrite inject-refl i = eq-implies-sub (x i)
+eqF-implies-subF eq-send! = sub-send!
+eqF-implies-subF eq-send? = sub-send?
+
 
 -- unrestricted
 data Unr : Type → Set where
