@@ -28,7 +28,7 @@ mutual
       → Val G (TPair t₁ t₂)
     VChan : ∀ {s}
       → (b : Bool)
-      → (vcr : ValidChannelRef G b s)
+      → (vcr : ChannelRef G b s)
       → Val G (TChan s)
     VFun : ∀ {φ lu t₁ t₂}
       → (lu ≡ LL ⊎ All Unr φ)
@@ -62,6 +62,14 @@ access (vcons ssp v ϱ) (here allUnr) =  _ , _ , unrestricted-venv allUnr ϱ , s
 access (vcons ssp x₀ ϱ) (there unrX₀ x) with access ϱ x
 access (vcons ssp x₀ ϱ) (there unrX₀ x) | G₁ , G₂ , inaG₂ , ssp12 , v with ssplit-compose4 _ _ _ _ _ ssp ssp12
 ... | Gi , ssp1 , ssp2 = G₁ , Gi , ssplit-inactive ssp2 (unrestricted-val unrX₀ x₀) inaG₂ , ssp1 , v
+
+-- coerce a value to a supertype
+coerce : ∀ {G t t'} → Val G t → SubT t t' → Val G t'
+coerce (VUnit inaG) sub-unit = VUnit inaG
+coerce (VInt i inaG) sub-int = VInt i inaG
+coerce (VPair ss-GG₁G₂ v v₁) (sub-pair t≤t' t≤t'') = VPair ss-GG₁G₂ (coerce v t≤t') (coerce v₁ t≤t'')
+coerce (VChan b vcr) (sub-chan s≲s') = VChan b (vcr-coerce vcr s≲s')
+coerce (VFun lu ϱ e) (sub-fun t≤t' t≤t'') = VFun lu ϱ (expr-coerce e t≤t'' t≤t')
 
 rewrite-ssplit : ∀ {G G' G₁ G₂} → G ≡ G' → SSplit G G₁ G₂ → SSplit G' G₁ G₂
 rewrite-ssplit p ssp rewrite p = ssp

@@ -41,7 +41,7 @@ data Expr : (Φ : TCtx) → Type → Set where
     → (e : Expr (t₁ ∷ t₂ ∷ Φ₂) t)
     → Expr Φ t
 
-  fork : ∀ { Φ}
+  fork : ∀ {Φ}
     → (e : Expr Φ TUnit)
     → Expr Φ TUnit
 
@@ -61,11 +61,11 @@ data Expr : (Φ : TCtx) → Type → Set where
       → (ch : (TChan (recv t s)) ∈ Φ)
       → Expr Φ (TPair (TChan (SType.force s)) t)
 
-  close : ∀ { Φ}
+  close : ∀ {Φ}
       → (ch : TChan send! ∈ Φ)
       → Expr Φ TUnit
 
-  wait : ∀ { Φ}
+  wait : ∀ {Φ}
       → (ch : TChan send? ∈ Φ)
       → Expr Φ TUnit
 
@@ -117,6 +117,11 @@ data Expr : (Φ : TCtx) → Type → Set where
         (ebody : Expr (t ∷ t₁ ∷ Φ) t₂)
       → Expr Φ t
 
+  subsume : ∀ {Φ t₁ t₂}
+      → (e : Expr Φ t₁)
+      → (t≤t' : SubT t₁ t₂)
+      → Expr Φ t₂
+
 unr-weaken-var : ∀ {Φ Φ₁ Φ₂ t} → Split Φ Φ₁ Φ₂ → All Unr Φ₂ → t ∈ Φ₁ → t ∈ Φ
 unr-weaken-var [] un-Φ₂ ()
 unr-weaken-var (unr x₁ sp) (_ ∷ un-Φ₂) (here x) = here (split-unr sp x un-Φ₂)
@@ -148,7 +153,7 @@ unr-weaken sp un-Φ₂ (ulambda sp₁ unr-Φ₁ unr-Φ₂ e) = ulambda sp (split
 unr-weaken sp un-Φ₂ (llambda sp₁ unr-Φ₂ e) = llambda sp un-Φ₂ (unr-weaken (left sp₁) unr-Φ₂ e)
 unr-weaken sp un-Φ₂ (app sp₁ xfun xarg) = letbind sp (app sp₁ xfun xarg) (var (here un-Φ₂))
 unr-weaken sp un-Φ₂ (rec unr-Φ e) = rec (split-unr sp unr-Φ un-Φ₂) (unr-weaken (left (left sp)) un-Φ₂ e)
-
+unr-weaken sp un-Φ₂ (subsume e t≤t') = subsume (unr-weaken sp un-Φ₂ e) t≤t'
 
 lift-expr : ∀ {Φ t tᵤ} → Unr tᵤ → Expr Φ t → Expr (tᵤ ∷ Φ) t
 lift-expr unrtu (var x) = var (there unrtu x)
@@ -171,6 +176,7 @@ lift-expr unrtu (ulambda sp unr-Φ unr-Φ₂ ebody) = ulambda (rght sp) unr-Φ (
 lift-expr unrtu (llambda sp unr-Φ₂ ebody) = llambda (rght sp) (unrtu ∷ unr-Φ₂) ebody
 lift-expr unrtu (app sp xfun xarg) = app (rght sp) xfun (there unrtu xarg)
 lift-expr{Φ} unrtu (rec unr-Φ ebody) = letbind (left (split-all-right Φ)) (var (here [])) (rec (unrtu ∷ unr-Φ) (unr-weaken (left (left (rght (split-all-left Φ)))) (unrtu ∷ []) ebody))
+lift-expr unrtu (subsume e t≤t') = subsume (lift-expr unrtu e) t≤t'
 
 unr-subst : ∀ {Φ Φ₁ Φ₂ tᵤ t} → Unr tᵤ → Split Φ Φ₁ Φ₂ → All Unr Φ₁ → Expr Φ₁ tᵤ → Expr (tᵤ ∷ Φ₂) t → Expr Φ t
 unr-subst unrtu sp unr-Φ₁ etu (var (here x)) = unr-weaken sp x etu
@@ -194,3 +200,7 @@ unr-subst unrtu sp unr-Φ₁ etu (ulambda sp₁ unr-Φ₂ unr-Φ₃ e) = letbind
 unr-subst unrtu sp unr-Φ₁ etu (llambda sp₁ unr-Φ₂ e) = letbind sp etu (llambda sp₁ unr-Φ₂ e)
 unr-subst unrtu sp unr-Φ₁ etu (app sp₁ xfun xarg) = letbind sp etu (app sp₁ xfun xarg)
 unr-subst unrtu sp unr-Φ₁ etu (rec unr-Φ e) = letbind sp etu (rec unr-Φ e)
+unr-subst unrtu sp unr-Φ₁ etu (subsume e t≤t') = subsume (unr-subst unrtu sp unr-Φ₁ etu e) t≤t'
+
+expr-coerce : ∀ {Φ t₁ t₂ t₁' t₂'} → Expr (t₁ ∷ Φ) t₂ → SubT t₂ t₂' → SubT t₁' t₁ → Expr (t₁' ∷ Φ) t₂'
+expr-coerce e t2≤t2' t1'≤t1 = letbind (left (split-all-right _)) (subsume (var (here [])) t1'≤t1) (subsume e t2≤t2')
