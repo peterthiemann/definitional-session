@@ -19,9 +19,9 @@ open import Global
 open import Channel
 open import Values
 
-data Fuel : Set where
-  Empty : Fuel
-  More  : Fuel → Fuel
+data Gas : Set where
+  Empty : Gas
+  More  : Gas → Gas
 
 mutual
   data Cont (G : SCtx) (φ : TCtx) (t : Type) : Set where
@@ -118,16 +118,8 @@ rewrite-helper ina-G2 ssp-GG1G2 ssp-GGG'' ϱ with inactive-right-ssplit ssp-GG1G
 ... | p with rewrite-ssplit1 (sym p) ssp-GG1G2
 ... | ssp rewrite ssplit-function2 ssp ssp-GGG'' = ϱ
 
--- apply a continuation
-apply-cont : ∀ {G G₁ G₂ t φ}
-  → Fuel
-  → (ssp : SSplit G G₁ G₂)
-  → (κ : Cont G₂ φ t)
-  → Val G₁ t
-  → Command G
 -- interpret an expression
 run : ∀ {φ φ₁ φ₂ t G G₁ G₂}
-  → Fuel
   → Split φ φ₁ φ₂
   → SSplit G G₁ G₂
   → Expr φ₁ t
@@ -135,50 +127,51 @@ run : ∀ {φ φ₁ φ₂ t G G₁ G₂}
   → Cont G₂ φ₂ t
   → Command G
 
-run{G = G}{G₁ = G₁}{G₂ = G₂} f tsp ssp (var x) ϱ κ with access ϱ x
-... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina = apply-cont f ssp κ v
-run f tsp ssp (nat unr-φ i) ϱ κ =
-  apply-cont f ssp κ (VInt i (unrestricted-venv unr-φ ϱ))
-run f tsp ssp (unit unr-φ) ϱ κ =
-  apply-cont f ssp κ (VUnit (unrestricted-venv unr-φ ϱ))
-run{φ}{φ₁}{φ₂} f tsp ssp (letbind{.φ₁}{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
+run{G = G}{G₁ = G₁}{G₂ = G₂} tsp ssp (var x) ϱ κ with access ϱ x
+... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina =
+  Stopped ssp v κ
+run tsp ssp (nat unr-φ i) ϱ κ =
+  Stopped ssp (VInt i (unrestricted-venv unr-φ ϱ)) κ
+run tsp ssp (unit unr-φ) ϱ κ =
+  Stopped ssp (VUnit (unrestricted-venv unr-φ ϱ)) κ
+run{φ}{φ₁}{φ₂} tsp ssp (letbind{.φ₁}{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
 ... | (G₁ , G₂) , ssp-G1G2 , ϱ₁ , ϱ₂ | φ' , tsp-φ' , φ'-tsp with ssplit-compose _ _ _ _ _ ssp ssp-G1G2
 ... | Gi , ssp-3i , ssp-42 =
-  run f tsp-φ' ssp-3i e₁ ϱ₁
+  run tsp-φ' ssp-3i e₁ ϱ₁
   (bind φ'-tsp ssp-42 e₂ ϱ₂ κ₂)
-run f tsp ssp (pair sp x₁ x₂) ϱ κ with split-env sp ϱ
+run tsp ssp (pair sp x₁ x₂) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ x₁ | access ϱ₂ x₂
 ... | Gv₁ , Gr₁ , ina-Gr₁ , ss-v1r1 , v₁ | Gv₂ , Gr₂ , ina-Gr₂ , ss-v2r2 , v₂ rewrite inactive-right-ssplit ss-v1r1 ina-Gr₁ | inactive-right-ssplit ss-v2r2 ina-Gr₂ =
-  apply-cont f ssp κ (VPair ss-G1G1'G2' v₁ v₂)
-run f tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
+  Stopped ssp (VPair ss-G1G1'G2' v₁ v₂) κ
+run tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ p
-run f tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gvp , Gr , ina-Gr , ss-vpr , VPair ss-GG₁G₂ v₁ v₂ with split-rotate tsp sp
+run tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gvp , Gr , ina-Gr , ss-vpr , VPair ss-GG₁G₂ v₁ v₂ with split-rotate tsp sp
 ... | φ' , ts-φφ1φ' , ts-φ'φ3φ4 rewrite inactive-right-ssplit ss-vpr ina-Gr with ssplit-compose _ _ _ _ _ ss-G1G1'G2' ss-GG₁G₂
-... | Gi , ss-G3G1Gi , ss-G1G2G2' = run f (left (left ts-φ'φ3φ4)) ssp e (vcons ss-G3G1Gi v₁ (vcons ss-G1G2G2' v₂ ϱ₂)) κ 
-run{φ}{φ₁}{G = G}{G₁ = G₁} f tsp ssp (fork e) ϱ κ with ssplit-refl-left G₁ | split-refl-left φ₁
+... | Gi , ss-G3G1Gi , ss-G1G2G2' = run (left (left ts-φ'φ3φ4)) ssp e (vcons ss-G3G1Gi v₁ (vcons ss-G1G2G2' v₂ ϱ₂)) κ 
+run{φ}{φ₁}{G = G}{G₁ = G₁} tsp ssp (fork e) ϱ κ with ssplit-refl-left G₁ | split-refl-left φ₁
 ... | Gi , ss-g1g1g2 | φ' , unr-φ' , sp-φφφ' with split-env sp-φφφ' ϱ
 ... | (Gp1 , Gp2) , ss-Gp , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ' ϱ₂
 ... | ina-Gp2 with inactive-right-ssplit-transform ss-Gp ina-Gp2
 ... | ss-Gp' rewrite sym (ssplit-function2 ss-g1g1g2 ss-Gp') =
   Fork ssp (bind sp-φφφ' ss-g1g1g2 (lift-expr UUnit e) ϱ (halt ina-Gp2 UUnit)) κ
-run f tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
+run tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina rewrite inactive-left-ssplit ssp ina = New s κ
-run f tsp ssp (close ch) ϱ κ with access ϱ ch
+run tsp ssp (close ch) ϱ κ with access ϱ ch
 ... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
-run f tsp ssp (close ch) ϱ κ | Gch , Gϱ , ina , ssp12 , vch | vch' | refl = Close ssp vch' κ
-run f tsp ssp (wait ch) ϱ κ with access ϱ ch
+run tsp ssp (close ch) ϱ κ | Gch , Gϱ , ina , ssp12 , vch | vch' | refl = Close ssp vch' κ
+run tsp ssp (wait ch) ϱ κ with access ϱ ch
 ... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
 ... | vch' | refl = Wait ssp vch' κ
-run f tsp ssp (send sp ch vv) ϱ κ with split-env sp ϱ
+run tsp ssp (send sp ch vv) ϱ κ with split-env sp ϱ
 ... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ ch
 ... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vch with access ϱ₂ vv
 ... | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , vvv with ssplit-join ss-gg ss-g1g3g4 ss-g2g5g6
 ... | G₁' , G₂' , ss-g1'g2' , ss-g3g5 , ss-g4g6 rewrite sym (inactive-right-ssplit ss-g1g3g4 ina-G₄) | sym (inactive-right-ssplit ss-g2g5g6 ina-G₆) = Send ssp ss-gg vch vvv κ
-run f tsp ssp (recv ch) ϱ κ with access ϱ ch
+run tsp ssp (recv ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Recv ssp vch κ
-run f tsp ssp (nselect lab ch) ϱ κ with access ϱ ch
+run tsp ssp (nselect lab ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = NSelect ssp lab vch κ
-run f tsp ssp (nbranch{m}{alt} sp ch ealts) ϱ κ with split-env sp ϱ
+run tsp ssp (nbranch{m}{alt} sp ch ealts) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch with ssplit-compose _ _ _ _ _ ssp ss-G1G1'G2'
 ... | Gi , ss-G-G1'Gi , ss-Gi-G2'-G2 with split-rotate tsp sp
@@ -187,9 +180,9 @@ run f tsp ssp (nbranch{m}{alt} sp ch ealts) ϱ κ with split-env sp ϱ
   where
     dcont : (lab : Fin m) → Cont Gi _ (TChan (SType.force (alt lab)))
     dcont lab = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 (ealts lab) ϱ₂ κ
-run f tsp ssp (select lab ch) ϱ κ with access ϱ ch
+run tsp ssp (select lab ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Select ssp lab vch κ
-run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp ϱ
+run tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch with ssplit-compose _ _ _ _ _ ssp ss-G1G1'G2'
 ... | Gi , ss-G-G1'Gi , ss-Gi-G2'-G2 with split-rotate tsp sp
@@ -199,40 +192,43 @@ run f tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp �
     dcont : (lab : Selector) → Cont Gi _ (TChan (selection lab (SType.force s₁) (SType.force s₂)))
     dcont Left = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-left ϱ₂ κ
     dcont Right = bind sp-φ'φ3φ4 ss-Gi-G2'-G2 e-rght ϱ₂ κ
-run f tsp ssp (ulambda sp unr-φ unr-φ₃ ebody) ϱ κ with split-env sp ϱ
+run tsp ssp (ulambda sp unr-φ unr-φ₃ ebody) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₃ ϱ₂
 ... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
 ... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ₁ ebody) κ
-run f tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ with split-env sp ϱ
+run tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₂ ϱ₂
 ... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
 ... | refl = Stopped ssp (VFun (inj₁ refl) ϱ₁ ebody) κ
-run{φ}{φ₁}{φ₂} f tsp ssp e@(rec unr-φ ebody) ϱ κ with unrestricted-venv unr-φ ϱ
+run{φ}{φ₁}{φ₂} tsp ssp e@(rec unr-φ ebody) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina-G2' with inactive-right-ssplit (ssplit-sym ssp) ina-G2'
 ... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ (unr-subst UFun (rght (split-all-unr unr-φ)) unr-φ e ebody)) κ
-run f tsp ssp (app sp efun earg) ϱ κ with split-env sp ϱ
+run tsp ssp (app sp efun earg) ϱ κ with split-env sp ϱ
 ... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ efun
 ... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vfun with access ϱ₂ earg
-run{φ}{φ₁}{φ₂} f tsp ssp (app sp efun earg) ϱ κ | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , VFun{φ'} x ϱ₃ e | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , varg with ssplit-compose4 _ _ _ _ _ ss-gg ss-g2g5g6
+run{φ}{φ₁}{φ₂} tsp ssp (app sp efun earg) ϱ κ | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , VFun{φ'} x ϱ₃ e | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , varg with ssplit-compose4 _ _ _ _ _ ss-gg ss-g2g5g6
 ... | Gi , ss-g1-g5-gi , ss-gi-g1-g6 with ssplit-compose _ _ _ _ _ ssp ss-g1-g5-gi
 ... | Gi₁ , ss-g-g5-gi1 , ss-gi1-gi-g2 with inactive-right-ssplit ss-g1g3g4 ina-G₄
 ... | refl with inactive-right-ssplit ss-gi-g1-g6 ina-G₆
 ... | refl with split-from-disjoint φ' φ₂
 ... | φ₀ , sp' = Stopped ss-g-g5-gi1 varg (bind sp' ss-gi1-gi-g2 e ϱ₃ κ)
-run f tsp ssp (subsume e t≤t') ϱ κ =
-  run f tsp ssp e ϱ (subsume t≤t' κ)
+run tsp ssp (subsume e t≤t') ϱ κ =
+  run tsp ssp e ϱ (subsume t≤t' κ)
 
-apply-cont f ssp (halt inG un-t) v with unrestricted-val un-t v
+-- apply a continuation
+apply-cont : ∀ {G G₁ G₂ t φ}
+  → (ssp : SSplit G G₁ G₂)
+  → (κ : Cont G₂ φ t)
+  → Val G₁ t
+  → Command G
+apply-cont ssp (halt inG un-t) v with unrestricted-val un-t v
 ... | inG2  with inactive-right-ssplit ssp inG
 ... | refl = Halt (ssplit-inactive ssp inG2 inG) un-t v
-apply-cont (More f) ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 _ _ _ _ _ ssp ss
+apply-cont ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 _ _ _ _ _ ssp ss
 ... | Gi , ss-GGiG4 , ss-GiG1G3 =
-  run f (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
-apply-cont f ssp (subsume t≤t' κ) v =
-  apply-cont f ssp κ (coerce v t≤t')
-apply-cont Empty ssp (bind ts ss e₂ ϱ₂ κ) v =
-  Stopped ssp v (bind ts ss e₂ ϱ₂ κ)
-
+  run (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
+apply-cont ssp (subsume t≤t' κ) v =
+  apply-cont ssp κ (coerce v t≤t')
 
 extract-inactive-from-cont : ∀ {G t φ} → Unr t → Cont G φ t → Σ SCtx λ G' → Inactive G' × SSplit G G' G
 extract-inactive-from-cont{G} un-t κ = ssplit-refl-right-inactive G
@@ -454,19 +450,19 @@ matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd tp-wl) tp-acc with ssp
 -- outcomes of scheduling
 data Outcome : Set where
   Terminated : Outcome
-  OutOfFuel : ∀ {G} → ThreadPool G → Outcome
+  OutOfGas : ∀ {G} → ThreadPool G → Outcome
 
 -- thread scheduling
-schedule : Fuel → (G : SCtx) → ThreadPool G → Outcome
+schedule : Gas → (G : SCtx) → ThreadPool G → Outcome
 schedule f G (tnil ina) = Terminated
 schedule (More f) G (tcons ss (Fork{G₁ = G₁}{G₂ = G₂} ss₁ κ₁ κ₂) tp) with ssplit-compose _ _ _ _ _ ss ss₁
 ... | Gi , ss₁₃ , ss₂₄ with ssplit-refl-right G₁ | ssplit-refl-right G₂
 ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
   schedule f G
-    (tcons ss₁₃ (apply-cont f ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
-    (tcons ss₂₄ (apply-cont f ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
+    (tcons ss₁₃ (apply-cont ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
+    (tcons ss₂₄ (apply-cont ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
 schedule (More f) G (tcons ss (Stopped ss₁ v κ) tp) =
-  schedule f G (tsnoc ss tp (apply-cont f ss₁ κ v))
+  schedule f G (tsnoc ss tp (apply-cont ss₁ κ v))
 schedule (More f) G (tcons ss (Halt inaG _ _) tp) with tp | inactive-left-ssplit ss inaG
 schedule (More f) G (tcons ss (Halt inaG _ _) tp) | tp' | refl = schedule f G tp'
 schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
@@ -474,7 +470,7 @@ schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | ina-Gi =
   schedule f (just (SType.force s , POSNEG) ∷ G)
     (tcons (ss-left ss)
-           (apply-cont f (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi (subF-refl _))) (VChan false (here-neg ina-Gi (subF-refl _)))))
+           (apply-cont (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi (subF-refl _))) (VChan false (here-neg ina-Gi (subF-refl _)))))
            (lift-threadpool tp))
 schedule (More f) G (tcons{G₁}{G₂} ss cmd@(Close ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
@@ -496,9 +492,9 @@ schedule (More f) G (tcons {G₁} {G₂} ss cmd@(NSelect ss-vκ lab vch κ) tp) 
 ... | nothing = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(Branch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons ss cmd@(NBranch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
-schedule Empty G tp@(tcons _ _ _) = OutOfFuel tp
+schedule Empty G tp@(tcons _ _ _) = OutOfGas tp
 
 -- start main thread
-start : Fuel → Expr [] TUnit → Outcome
+start : Gas → Expr [] TUnit → Outcome
 start f e =
-  schedule f [] (tcons ss-[] (run f [] ss-[] e (vnil []-inactive) (halt []-inactive UUnit)) (tnil []-inactive))
+  schedule f [] (tcons ss-[] (run [] ss-[] e (vnil []-inactive) (halt []-inactive UUnit)) (tnil []-inactive))
