@@ -134,7 +134,7 @@ run tsp ssp (nat unr-φ i) ϱ κ =
   Stopped ssp (VInt i (unrestricted-venv unr-φ ϱ)) κ
 run tsp ssp (unit unr-φ) ϱ κ =
   Stopped ssp (VUnit (unrestricted-venv unr-φ ϱ)) κ
-run{φ}{φ₁}{φ₂} tsp ssp (letbind{.φ₁}{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
+run{φ}{φ₁}{φ₂} tsp ssp (letbind{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
 ... | (G₁ , G₂) , ssp-G1G2 , ϱ₁ , ϱ₂ | φ' , tsp-φ' , φ'-tsp with ssplit-compose ssp ssp-G1G2
 ... | Gi , ssp-3i , ssp-42 =
   run tsp-φ' ssp-3i e₁ ϱ₁

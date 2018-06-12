@@ -26,3 +26,4 @@ anf (branch sp de de₁ de₂) = letbind sp (anf de) (branch (left (split-all-ri
 anf (ulambda unr-φ de) = ulambda (split-all-left _) unr-φ [] (anf de)
 anf (llambda de) = llambda (split-all-left _) [] (anf de)
 anf (app sp de de₁) = letbind sp (anf de) (letbind (rght (split-all-left _)) (anf de₁) (app (rght (left [])) (here []) (here [])))
+anf (subsume de t≤t') = subsume (anf de) t≤t'

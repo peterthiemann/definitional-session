@@ -9,115 +9,108 @@ open import Data.Product
 open import Typing
 
 -- expressions
-data Expr : (Φ : TCtx) → Type → Set where
-  var : ∀ {t Φ}
+data Expr Φ : Type → Set where
+  var : ∀ {t}
       → (x : t ∈ Φ)
       → Expr Φ t
 
-  nat : ∀ {Φ}
-      → (unr-Φ : All Unr Φ)
+  nat : (unr-Φ : All Unr Φ)
       → (i : ℕ)
       → Expr Φ TInt
 
-  unit : ∀ {Φ}
-      → (unr-Φ : All Unr Φ)
+  unit : (unr-Φ : All Unr Φ)
       → Expr Φ TUnit
 
-  letbind : ∀ {Φ Φ₁ Φ₂ t₁ t₂}
+  letbind : ∀ {Φ₁ Φ₂ t₁ t₂}
     → (sp : Split Φ Φ₁ Φ₂)
     → (e₁ : Expr Φ₁ t₁)
     → (e₂ : Expr (t₁ ∷ Φ₂) t₂)
     → Expr Φ t₂
 
-  pair : ∀ {Φ Φ₁ Φ₂ t₁ t₂}
+  pair : ∀ {Φ₁ Φ₂ t₁ t₂}
     → (sp : Split Φ Φ₁ Φ₂)
     → (x₁ : t₁ ∈ Φ₁)
     → (x₂ : t₂ ∈ Φ₂)
     → Expr Φ (TPair t₁ t₂)
 
-  letpair : ∀ {Φ Φ₁ Φ₂ t₁ t₂ t}
+  letpair : ∀ {Φ₁ Φ₂ t₁ t₂ t}
     → (sp : Split Φ Φ₁ Φ₂)
     → (p : TPair t₁ t₂ ∈ Φ₁)
     → (e : Expr (t₁ ∷ t₂ ∷ Φ₂) t)
     → Expr Φ t
 
-  fork : ∀ {Φ}
-    → (e : Expr Φ TUnit)
+  fork : (e : Expr Φ TUnit)
     → Expr Φ TUnit
 
-  new : ∀ {Φ}
-      → (unr-Φ : All Unr Φ)
+  new : (unr-Φ : All Unr Φ)
       → (s : SType)
       → Expr Φ (TPair (TChan (SType.force s)) (TChan (SType.force (dual s))))
 
-  -- takes only variables to avoid extraneous effects
-  send : ∀ {Φ Φ₁ Φ₂ s t}
+  send : ∀ {Φ₁ Φ₂ s t}
       → (sp : Split Φ Φ₁ Φ₂)
       → (ch : (TChan (send t s)) ∈ Φ₁)
       → (vv : t ∈ Φ₂)
       → Expr Φ (TChan (SType.force s))
-  -- takes only variables to avoid extraneous effects
-  recv : ∀ {Φ s t}
+
+  recv : ∀ {s t}
       → (ch : (TChan (recv t s)) ∈ Φ)
       → Expr Φ (TPair (TChan (SType.force s)) t)
 
-  close : ∀ {Φ}
-      → (ch : TChan send! ∈ Φ)
+  close : (ch : TChan send! ∈ Φ)
       → Expr Φ TUnit
 
-  wait : ∀ {Φ}
-      → (ch : TChan send? ∈ Φ)
+  wait : (ch : TChan send? ∈ Φ)
       → Expr Φ TUnit
 
-  select : ∀ {s₁ s₂ Φ}
+  select : ∀ {s₁ s₂}
       → (lab : Selector)
       → (ch : TChan (sintern s₁ s₂) ∈ Φ)
       → Expr Φ (TChan (selection lab (SType.force s₁) (SType.force s₂)))
 
-  branch : ∀ {s₁ s₂ Φ Φ₁ Φ₂ t}
+  branch : ∀ {s₁ s₂ Φ₁ Φ₂ t}
       → (sp : Split Φ Φ₁ Φ₂)
       → (ch : TChan (sextern s₁ s₂) ∈ Φ₁)
       → (eleft : Expr (TChan (SType.force s₁) ∷ Φ₂) t)
       → (erght : Expr (TChan (SType.force s₂) ∷ Φ₂) t)
       → Expr Φ t
 
-  nselect : ∀ {m alt Φ}
+  nselect : ∀ {m alt}
       → (lab : Fin m)
       → (ch : TChan (sintN m alt) ∈ Φ)
       → Expr Φ (TChan (SType.force (alt lab)))
 
-  nbranch : ∀ {m alt Φ Φ₁ Φ₂ t}
+  nbranch : ∀ {m alt Φ₁ Φ₂ t}
       → (sp : Split Φ Φ₁ Φ₂)
       → (ch : TChan (sextN m alt) ∈ Φ₁)
       → (ealts : (i : Fin m) → Expr (TChan (SType.force (alt i)) ∷ Φ₂) t)
       → Expr Φ t
 
-  ulambda : ∀ {Φ Φ₁ Φ₂ t₁ t₂}
+  ulambda : ∀ {Φ₁ Φ₂ t₁ t₂}
       → (sp : Split Φ Φ₁ Φ₂)
       → (unr-Φ₁ : All Unr Φ₁)
       → (unr-Φ₂ : All Unr Φ₂)
       → (ebody : Expr (t₁ ∷ Φ₁) t₂)
       → Expr Φ (TFun UU t₁ t₂)
 
-  llambda : ∀ {Φ Φ₁ Φ₂ t₁ t₂}
+  llambda : ∀ {Φ₁ Φ₂ t₁ t₂}
       → (sp : Split Φ Φ₁ Φ₂)
       → (unr-Φ₂ : All Unr Φ₂)
       → (ebody : Expr (t₁ ∷ Φ₁) t₂)
       → Expr Φ (TFun LL t₁ t₂)
 
-  app : ∀ {Φ Φ₁ Φ₂ lu t₁ t₂}
+  app : ∀ {Φ₁ Φ₂ lu t₁ t₂}
       → (sp : Split Φ Φ₁ Φ₂)
       → (xfun : TFun lu t₁ t₂ ∈ Φ₁)
       → (xarg : t₁ ∈ Φ₂)
       → Expr Φ t₂
 
-  rec : ∀ {Φ t₁ t₂}
+  rec : ∀ {t₁ t₂}
       → (unr-Φ : All Unr Φ)
       → let t = TFun UU t₁ t₂ in
         (ebody : Expr (t ∷ t₁ ∷ Φ) t₂)
       → Expr Φ t
 
-  subsume : ∀ {Φ t₁ t₂}
+  subsume : ∀ {t₁ t₂}
       → (e : Expr Φ t₁)
       → (t≤t' : SubT t₁ t₂)
       → Expr Φ t₂
