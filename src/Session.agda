@@ -10,6 +10,7 @@ open import Data.Nat
 open import Data.Product
 open import Data.Sum
 open import Data.Unit
+open import Function using (_$_)
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
@@ -446,10 +447,15 @@ matchNBranchAndGo ss-top (ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-tp (tcons ss
 matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchNBranchAndGo ss-top nselect-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 
+data Event : Set where
+  Forked Restarted Halted New Closed NotClosed WaitSkipped : Event
+  SendSkipped Received NotReceived Selected NotSelected : Event
+  NSelected NotNSelected BranchSkipped NBranchSkipped : Event
 
 -- outcomes of scheduling
 data Outcome : Set where
   Terminated : Outcome
+  Action : Event → Outcome → Outcome
   OutOfGas : ∀ {G} → ThreadPool G → Outcome
 
 -- thread scheduling
@@ -458,40 +464,40 @@ schedule f G (tnil ina) = Terminated
 schedule (More f) G (tcons ss (Fork{G₁ = G₁}{G₂ = G₂} ss₁ κ₁ κ₂) tp) with ssplit-compose ss ss₁
 ... | Gi , ss₁₃ , ss₂₄ with ssplit-refl-right G₁ | ssplit-refl-right G₂
 ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
-  schedule f G
+  Action Forked $ schedule f G
     (tcons ss₁₃ (apply-cont ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
     (tcons ss₂₄ (apply-cont ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
 schedule (More f) G (tcons ss (Stopped ss₁ v κ) tp) =
-  schedule f G (tsnoc ss tp (apply-cont ss₁ κ v))
+  Action Restarted $ schedule f G (tsnoc ss tp (apply-cont ss₁ κ v))
 schedule (More f) G (tcons ss (Halt inaG _ _) tp) with tp | inactive-left-ssplit ss inaG
-schedule (More f) G (tcons ss (Halt inaG _ _) tp) | tp' | refl = schedule f G tp'
+... | tp' | refl = Action Halted $ schedule f G tp'
 schedule (More f) G (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | Gi , ss-GiG1 with ssplit-inactive-right ss-GiG1
 ... | ina-Gi =
-  schedule f (just (SType.force s , POSNEG) ∷ G)
+  Action New $ schedule f (just (SType.force s , POSNEG) ∷ G)
     (tcons (ss-left ss)
            (apply-cont (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi (subF-refl _))) (VChan false (here-neg ina-Gi (subF-refl _)))))
            (lift-threadpool tp))
 schedule (More f) G (tcons{G₁}{G₂} ss cmd@(Close ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
-... | just (Gnext , tpnext) = schedule f Gnext tpnext
-... | nothing = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(Wait ss-vκ v κ) tp) = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(Send _ _ _ _ _) tp) = schedule f G (tsnoc ss tp cmd)
+... | just (Gnext , tpnext) = Action Closed $ schedule f Gnext tpnext
+... | nothing = Action NotClosed $ schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Wait _ _ _) tp) = Action WaitSkipped $ schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Send _ _ _ _ _) tp) = Action SendSkipped $ schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons{G₁}{G₂} ss cmd@(Recv ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchSendAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')
-... | just (G-next , tp-next) = schedule f G-next tp-next
-... | nothing = schedule f G (tsnoc ss tp cmd)
+... | just (G-next , tp-next) = Action Received $ schedule f G-next tp-next
+... | nothing = Action NotReceived $ schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(Select ss-vκ lab vch κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchBranchAndGo ss (ss-vκ , lab , vch , κ) ss-GG' tp (tnil ina-G')
-... | just (G-next , tp-next) = schedule f G-next tp-next
-... | nothing = schedule f G (tsnoc ss tp cmd)
+... | just (G-next , tp-next) = Action Selected $ schedule f G-next tp-next
+... | nothing = Action NotSelected $ schedule f G (tsnoc ss tp cmd)
 schedule (More f) G (tcons {G₁} {G₂} ss cmd@(NSelect ss-vκ lab vch κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchNBranchAndGo ss (ss-vκ , lab , vch , κ) ss-GG' tp (tnil ina-G')
-... | just (G-next , tp-next) = schedule f G-next tp-next
-... | nothing = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(Branch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
-schedule (More f) G (tcons ss cmd@(NBranch ss-vκ vch dcont) tp) = schedule f G (tsnoc ss tp cmd)
+... | just (G-next , tp-next) = Action NSelected $ schedule f G-next tp-next
+... | nothing = Action NotNSelected $ schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(Branch ss-vκ vch dcont) tp) = Action BranchSkipped $ schedule f G (tsnoc ss tp cmd)
+schedule (More f) G (tcons ss cmd@(NBranch ss-vκ vch dcont) tp) = Action NBranchSkipped $ schedule f G (tsnoc ss tp cmd)
 schedule Empty G tp@(tcons _ _ _) = OutOfGas tp
 
 -- start main thread

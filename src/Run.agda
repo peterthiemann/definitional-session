@@ -25,17 +25,17 @@ gas (suc n) = More (gas n)
 runex1 : Outcome
 runex1 = start (gas 8) ex1
 
--- works up to (gas 4), but gets slow at 4
+-- runs to completion, but gets slow at 9
 runex2 : Outcome
-runex2 = start (gas 4) ex2
+runex2 = start (gas 14) ex2
 
 -- need more steps, but gets *very* slow
 runex3 : Outcome
 runex3 = start (gas 4) ex3
 
--- works up to (gas 5)
+-- runs to completion
 runex4 : Outcome
-runex4 = start (gas 5) ex4
+runex4 = start (gas 10) ex4
 
 -- just lambda calculus
 -- runs to completion: the magic number is 2
