@@ -84,6 +84,7 @@ data Outcome : Set where
 schedule : {G : SCtx} → Gas → ThreadPool G → Outcome
 schedule Empty tp = OutOfGas tp
 schedule (More gas) tp with step tp
+... | Terminated , tp' = Terminated
 ... | ev , tp' = Action ev (schedule gas tp')
 
 -- start main thread

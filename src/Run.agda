@@ -12,6 +12,7 @@ open import Global
 open import Channel
 open import Values
 open import Session
+open import Schedule
 
 open import Examples
 
@@ -31,11 +32,11 @@ runex2 = start (gas 14) ex2
 
 -- need more steps, but gets *very* slow
 runex3 : Outcome
-runex3 = start (gas 4) ex3
+runex3 = start (gas 6) ex3
 
 -- runs to completion
 runex4 : Outcome
-runex4 = start (gas 10) ex4
+runex4 = start (gas 11) ex4
 
 -- just lambda calculus
 -- runs to completion: the magic number is 2
