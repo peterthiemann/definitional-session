@@ -40,9 +40,8 @@ step (tcons ss (Fork{G₁ = G₁}{G₂ = G₂} ss₁ κ₁ κ₂) tp) with sspli
                   (tcons ss₂₄ (apply-cont ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
 step (tcons ss (Stopped ss₁ v κ) tp) =
   Restarted , (tsnoc ss tp (apply-cont ss₁ κ v))
-step (tcons ss (Halt inaG x₁ x₂) tp) with tp | inactive-left-ssplit ss inaG
-... | tp' | refl =
-  Halted , tp'
+step (tcons ss (Halt inaG x₁ x₂) tp) rewrite inactive-left-ssplit ss inaG =
+  Halted , tp
 step (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | Gi , ss-GiG1 with ssplit-inactive-right ss-GiG1
 ... | ina-Gi =
