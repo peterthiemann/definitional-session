@@ -7,7 +7,7 @@ open import Syntax
 
 -- processes
 data Proc (Φ : TCtx) : Set where
-  exp : Expr Φ TUnit
+  exp : (e : Expr Φ TUnit)
     → Proc Φ
 
   par : ∀ {Φ₁ Φ₂}
@@ -17,6 +17,6 @@ data Proc (Φ : TCtx) : Set where
     → Proc Φ
 
   res : (s : SType)
-    → Proc (TChan (SType.force s) ∷ TChan (SType.force (dual s)) ∷ Φ)
+    → (P : Proc (TChan (SType.force s) ∷ TChan (SType.force (dual s)) ∷ Φ))
     → Proc Φ
 
