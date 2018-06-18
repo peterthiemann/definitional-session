@@ -8,7 +8,8 @@ The development is structured in several modules and may be read in the followin
   * `Global.agda` session contexts, splitting, inactive, (very technical) splitting lemmas
   * `Channel.agda` valid channel references, several versions of vcr-match for different rendezvous
   * `Values.agda` values, environments, and auxiliary lemmas
-  * `Session.agda` continuations, commands, interpreter for expressions `run`, lifting, thread pools, several matchWait functions, interpreter for thread pools `schedule`, main entry point `start`
+  * `Session.agda` continuations, commands, interpreter for expressions `run`, lifting, thread pools, several matchWait functions
+  * `Schedule.agda` step function and interpreter for thread pools `schedule`, **main entry point** `start`
   
 Furthermore, there are some auxiliary modules.
 
@@ -16,3 +17,5 @@ Furthermore, there are some auxiliary modules.
   * `ANF.agda` transformer from direct style DSyntax to Syntax
   * `Examples.agda` several example programs exercising progressively difficult features
   * `Run.agda` running a couple of examples (**very** inefficient)
+  * `ProcessSyntax.agda` typed syntax for process terms
+  * `ProcessRun.agda` definitions to run a process term + many auxiliary lemmas
