@@ -46,7 +46,7 @@ step (tcons{G₁} ss (New s κ) tp) with ssplit-refl-right G₁
 ... | Gi , ss-GiG1 with ssplit-inactive-right ss-GiG1
 ... | ina-Gi =
   New , (tcons (ss-left ss)
-           (apply-cont (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan true (here-pos ina-Gi (subF-refl _))) (VChan false (here-neg ina-Gi (subF-refl _)))))
+           (apply-cont (ss-left ss-GiG1) (lift-cont κ) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan POS (here-pos ina-Gi (subF-refl _))) (VChan NEG (here-neg ina-Gi (subF-refl _)))))
            (lift-threadpool tp))
 step (tcons{G₁}{G₂} ss cmd@(Close ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
 ... | G' , ina-G' , ss-GG' with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp (tnil ina-G')

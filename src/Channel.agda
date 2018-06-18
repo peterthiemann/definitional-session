@@ -14,18 +14,25 @@ open import Syntax
 open import Global
 
 
+data ChannelEnd : Set where
+  POS NEG : ChannelEnd
+
+otherEnd : ChannelEnd → ChannelEnd
+otherEnd POS = NEG
+otherEnd NEG = POS
+
 -- the main part of a channel endpoint value is a valid channel reference
--- the boolean determines whether it's the front end or the back end of the channel
+-- the channel end determines whether it's the front end or the back end of the channel
 -- enforces that the session context has only one channel
-data ChannelRef : (G : SCtx) (b : Bool) (s : STypeF SType) → Set where
+data ChannelRef : (G : SCtx) (ce : ChannelEnd) (s : STypeF SType) → Set where
   here-pos : ∀ {s s'} {G : SCtx}
     → (ina-G : Inactive G)
     → s ≲' s'
-    → ChannelRef (just (s , POS) ∷ G) true s'
+    → ChannelRef (just (s , POS) ∷ G) POS s'
   here-neg : ∀ {s s'} {G : SCtx}
     → (ina-G : Inactive G)
     → dualF s ≲' s'
-    → ChannelRef (just (s , NEG) ∷ G) false s'
+    → ChannelRef (just (s , NEG) ∷ G) NEG s'
   there : ∀ {b s} {G : SCtx}
     → (vcr : ChannelRef G b s)
     → ChannelRef (nothing ∷ G) b s
@@ -41,7 +48,7 @@ vcr-match : ∀ {G G₁ G₂ b₁ b₂ s₁ s₂}
   → SSplit G G₁ G₂
   → ChannelRef G₁ b₁ s₁
   → ChannelRef G₂ b₂ s₂
-  → Maybe (b₁ ≡ not b₂ × dualF s₂ ≲' s₁)
+  → Maybe (b₁ ≡ otherEnd b₂ × dualF s₂ ≲' s₁)
 vcr-match () (here-pos _ _) (here-pos _ _)
 vcr-match (ss-posneg ss) (here-pos{s} ina-G s<=s') (here-neg ina-G₁ ds<=s'') = just (refl , subF-trans (dual-subF ds<=s'') (subF-trans (eqF-implies-subF (eqF-sym (dual-involutionF s))) s<=s'))
 vcr-match (ss-left ss) (here-pos _ _) (there vcr2) = nothing
