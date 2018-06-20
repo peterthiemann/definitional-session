@@ -27,8 +27,8 @@ mutual
       → (v₂ : Val G₂ t₂)
       → Val G (TPair t₁ t₂)
     VChan : ∀ {s}
-      → (b : Bool)
-      → (vcr : ChannelRef G b s)
+      → (ce : ChannelEnd)
+      → (cr : ChannelRef G ce s)
       → Val G (TChan s)
     VFun : ∀ {φ lu t₁ t₂}
       → (lu ≡ LL ⊎ All Unr φ)
