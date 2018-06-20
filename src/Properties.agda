@@ -29,6 +29,69 @@ data Paired : SEntry → Set where
 -- need lemmas for matchXAndGo ...
 -- matchXandGo-preserves-paired
 
+
+matchWaitAndGo-preserves-paired : 
+  ∀ {G G₁ G₂  G₁₁ G₁₂ φ G₂₁ G₂₂ Gnext tpnext} 
+    {ss : SSplit G G₁ G₂}
+    {ss-cl : SSplit G₁ G₁₁ G₁₂}
+    {v : Val G₁₁ (TChan send!)}
+    {cl-κ : Cont G₁₂ φ TUnit}
+    {ss-GG' : SSplit G₂ G₂₁ G₂₂}
+  → All Paired G
+  → (tp' : ThreadPool G₂₁) 
+  → (tp'' : ThreadPool G₂₂)
+  → matchWaitAndGo ss (ss-cl , v , cl-κ) ss-GG' tp' tp'' ≡ just (Gnext , tpnext)
+  → All Paired Gnext
+matchWaitAndGo-preserves-paired all-paired (tnil ina) tp'' ()
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp') tp'' match-≡
+  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Stopped ss₁ v κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Halt x x₁ x₂) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(New s κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Close ss₁ v κ) tp') tp'' match-≡ with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Send ss₁ ss-args vch v κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Recv ss₁ vch κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Select ss₁ lab vch κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Branch ss₁ vch dcont) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(NSelect ss₁ lab vch κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(NBranch ss₁ vch dcont) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+... | Gi , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
+matchWaitAndGo-preserves-paired {ss = ss-top} {ss-cl = ss-cl} {v = VChan cl-b cl-vcr} {ss-GG' =  ss-tp}
+  all-paired (tcons ss cmd@(Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc match-≡
+  with ssplit-compose6 ss ss₁
+... | Gi , ss-g3gi , ss-g4g2
+  with ssplit-compose6 ss-tp ss-g3gi
+... | Gi' , ss-g3gi' , ss-gtpacc
+  with ssplit-join ss-top ss-cl ss-g3gi'
+... | Gchannels , Gother , ss-top' , ss-channels , ss-others
+   with vcr-match ss-channels cl-vcr w-vcr
+matchWaitAndGo-preserves-paired {ss = ss-top} {ss-cl} {VChan cl-b cl-vcr} {ss-GG' = ss-tp} all-paired (tcons ss cmd@(Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc match-≡ | Gi , ss-g3gi , ss-g4g2 | Gi' , ss-g3gi' , ss-gtpacc | Gchannels , Gother , ss-top' , ss-channels , ss-others | nothing with ssplit-compose5 ss-tp ss
+... | _ , ss-tp' , ss' =
+  matchWaitAndGo-preserves-paired all-paired tp-wl (tcons ss' cmd tp-acc) match-≡
+matchWaitAndGo-preserves-paired {ss = ss-top} {ss-cl} {VChan cl-b cl-vcr} {ss-GG' = ss-tp} all-paired (tcons ss cmd@(Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc refl | Gi , ss-g3gi , ss-g4g2 | Gi' , ss-g3gi' , ss-gtpacc | Gchannels , Gother , ss-top' , ss-channels , ss-others | just x = {!!}
+-- remains to prove All Paired Gother
+
 step-preserves-paired : ∀ {G G' ev tp'} → All Paired G → (tp : ThreadPool G) → step tp ≡ (_,_ {G'} ev tp') → All Paired G'
 step-preserves-paired all-paired tp step-≡ with tp
 step-preserves-paired all-paired tp refl | tnil ina = all-paired
@@ -37,9 +100,14 @@ step-preserves-paired all-paired tp refl | tcons ss (Stopped ss₁ v κ) tp' = a
 step-preserves-paired all-paired tp step-≡ | tcons ss (Halt x x₁ x₂) tp' with inactive-left-ssplit ss x
 step-preserves-paired all-paired tp refl | tcons ss (Halt x x₁ x₂) tp' | refl = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (New s κ) tp' = aon-all ∷ all-paired
-step-preserves-paired all-paired tp step-≡ | tcons{G₁}{G₂} ss (Close ss-vκ v κ) tp' with ssplit-refl-left-inactive G₂
-... | G' , ina-G' , ss-GG' with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp' (tnil ina-G')
-step-preserves-paired all-paired tp refl | tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp' | G' , ina-G' , ss-GG' | just (Gnext , tpnext) = {!!}
+step-preserves-paired all-paired tp step-≡ | tcons{G₁}{G₂} ss (Close ss-vκ v κ) tp'
+  with ssplit-refl-left-inactive G₂
+... | G' , ina-G' , ss-GG'
+  with matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp' (tnil ina-G')
+step-preserves-paired all-paired tp refl | tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp' | G' , ina-G' , ss-GG' | just (Gnext , tpnext) = matchWaitAndGo-preserves-paired {ss = ss}{ss-cl = ss-vκ}{v = v}{cl-κ = κ}{ss-GG'} all-paired tp' (tnil ina-G') p
+  where
+    p : matchWaitAndGo ss (ss-vκ , v , κ) ss-GG' tp' (tnil ina-G') ≡ just (Gnext , tpnext)
+    p = sym {!refl!}
 step-preserves-paired all-paired tp refl | tcons {G₁} {G₂} ss (Close ss-vκ v κ) tp' | G' , ina-G' , ss-GG' | nothing = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (Wait ss₁ v κ) tp' = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (Send ss₁ ss-args vch v κ) tp' = all-paired
