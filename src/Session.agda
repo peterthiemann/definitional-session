@@ -20,97 +20,93 @@ open import Global
 open import Channel
 open import Values
 
-data Gas : Set where
-  Empty : Gas
-  More  : Gas → Gas
 
-mutual
-  data Cont (G : SCtx) (φ : TCtx) (t : Type) : Set where
-    halt :
-      Inactive G 
-      → (un-t : Unr t)
-      → Cont G φ t
+data Cont (G : SCtx) (φ : TCtx) (t : Type) : Set where
+  halt :
+    Inactive G 
+    → (un-t : Unr t)
+    → Cont G φ t
 
-    bind : ∀ {φ₁ φ₂ G₁ G₂ t₂}
-      → (ts : Split φ φ₁ φ₂)
-      → (ss : SSplit G G₁ G₂)
-      → (e₂ : Expr (t ∷ φ₁) t₂)
-      → (ϱ₂ : VEnv G₁ φ₁)
-      → (κ₂ : Cont G₂ φ₂ t₂)
-      → Cont G φ t
+  bind : ∀ {φ₁ φ₂ G₁ G₂ t₂}
+    → (ts : Split φ φ₁ φ₂)
+    → (ss : SSplit G G₁ G₂)
+    → (e₂ : Expr (t ∷ φ₁) t₂)
+    → (ϱ₂ : VEnv G₁ φ₁)
+    → (κ₂ : Cont G₂ φ₂ t₂)
+    → Cont G φ t
 
-    subsume : ∀ {t₁}
-      → SubT t t₁
-      → Cont G φ t₁
-      → Cont G φ t
+  subsume : ∀ {t₁}
+    → SubT t t₁
+    → Cont G φ t₁
+    → Cont G φ t
 
-  data Command (G : SCtx) : Set where
+data Command (G : SCtx) : Set where
 
-    Fork : ∀ {φ₁ φ₂ G₁ G₂}
-      → (ss : SSplit G G₁ G₂)
-      → (κ₁ : Cont G₁ φ₁ TUnit)
-      → (κ₂ : Cont G₂ φ₂ TUnit)
-      → Command G
+  Fork : ∀ {φ₁ φ₂ G₁ G₂}
+    → (ss : SSplit G G₁ G₂)
+    → (κ₁ : Cont G₁ φ₁ TUnit)
+    → (κ₂ : Cont G₂ φ₂ TUnit)
+    → Command G
 
-    Stopped : ∀ {φ t G₁ G₂}
-      → (ss : SSplit G G₁ G₂)
-      → (v : Val G₁ t)
-      → (κ : Cont G₂ φ t)
-      → Command G
+  Stopped : ∀ {φ t G₁ G₂}
+    → (ss : SSplit G G₁ G₂)
+    → (v : Val G₁ t)
+    → (κ : Cont G₂ φ t)
+    → Command G
 
-    Halt : ∀ {t}
-      → Inactive G
-      → Unr t
-      → Val G t
-      → Command G
-    New : ∀ {φ}
-      → (s : SType)
-      → (κ : Cont G φ (TPair (TChan (SType.force s)) (TChan (SType.force (dual s)))))
-      → Command G
-    Close : ∀ {φ G₁ G₂}
-      → (ss : SSplit G G₁ G₂)
-      → (v : Val G₁ (TChan send!))
-      → (κ : Cont G₂ φ TUnit)
-      → Command G
-    Wait  : ∀ {φ G₁ G₂}
-      → (ss : SSplit G G₁ G₂)
-      → (v : Val G₁ (TChan send?))
-      → (κ : Cont G₂ φ TUnit)
-      → Command G
-    Send : ∀ {φ G₁ G₂ G₁₁ G₁₂ t s}
-      → (ss : SSplit G G₁ G₂)
-      → (ss-args : SSplit G₁ G₁₁ G₁₂)
-      → (vch : Val G₁₁ (TChan (send t s)))
-      → (v : Val G₁₂ t)
-      → (κ : Cont G₂ φ (TChan (SType.force s)))
-      → Command G
-    Recv : ∀ {φ G₁ G₂ t s}
-      → (ss : SSplit G G₁ G₂)
-      → (vch : Val G₁ (TChan (recv t s)))
-      → (κ : Cont G₂ φ (TPair (TChan (SType.force s)) t))
-      → Command G
-    Select : ∀ {φ G₁ G₂ s₁ s₂}
-      → (ss : SSplit G G₁ G₂)
-      → (lab : Selector)
-      → (vch : Val G₁ (TChan (sintern s₁ s₂)))
-      → (κ : Cont G₂ φ (TChan (selection lab (SType.force s₁) (SType.force s₂))))
-      → Command G
-    Branch : ∀ {φ G₁ G₂ s₁ s₂}
-      → (ss : SSplit G G₁ G₂)
-      → (vch : Val G₁ (TChan (sextern s₁ s₂)))
-      → (dcont : (lab : Selector) → Cont G₂ φ (TChan (selection lab (SType.force s₁) (SType.force s₂))))
-      → Command G
-    NSelect : ∀ {φ G₁ G₂ m alt}
-      → (ss : SSplit G G₁ G₂)
-      → (lab : Fin m)
-      → (vch : Val G₁ (TChan (sintN m alt)))
-      → (κ : Cont G₂ φ (TChan (SType.force (alt lab))))
-      → Command G
-    NBranch : ∀ {φ G₁ G₂ m alt}
-      → (ss : SSplit G G₁ G₂)
-      → (vch : Val G₁ (TChan (sextN m alt)))
-      → (dcont : (lab : Fin m) → Cont G₂ φ (TChan (SType.force (alt lab))))
-      → Command G
+  Halt : ∀ {t}
+    → Inactive G
+    → Unr t
+    → Val G t
+    → Command G
+  New : ∀ {φ}
+    → (s : SType)
+    → (κ : Cont G φ (TPair (TChan (SType.force s)) (TChan (SType.force (dual s)))))
+    → Command G
+  Close : ∀ {φ G₁ G₂}
+    → (ss : SSplit G G₁ G₂)
+    → (v : Val G₁ (TChan send!))
+    → (κ : Cont G₂ φ TUnit)
+    → Command G
+  Wait  : ∀ {φ G₁ G₂}
+    → (ss : SSplit G G₁ G₂)
+    → (v : Val G₁ (TChan send?))
+    → (κ : Cont G₂ φ TUnit)
+    → Command G
+  Send : ∀ {φ G₁ G₂ G₁₁ G₁₂ t s}
+    → (ss : SSplit G G₁ G₂)
+    → (ss-args : SSplit G₁ G₁₁ G₁₂)
+    → (vch : Val G₁₁ (TChan (send t s)))
+    → (v : Val G₁₂ t)
+    → (κ : Cont G₂ φ (TChan (SType.force s)))
+    → Command G
+  Recv : ∀ {φ G₁ G₂ t s}
+    → (ss : SSplit G G₁ G₂)
+    → (vch : Val G₁ (TChan (recv t s)))
+    → (κ : Cont G₂ φ (TPair (TChan (SType.force s)) t))
+    → Command G
+  Select : ∀ {φ G₁ G₂ s₁ s₂}
+    → (ss : SSplit G G₁ G₂)
+    → (lab : Selector)
+    → (vch : Val G₁ (TChan (sintern s₁ s₂)))
+    → (κ : Cont G₂ φ (TChan (selection lab (SType.force s₁) (SType.force s₂))))
+    → Command G
+  Branch : ∀ {φ G₁ G₂ s₁ s₂}
+    → (ss : SSplit G G₁ G₂)
+    → (vch : Val G₁ (TChan (sextern s₁ s₂)))
+    → (dcont : (lab : Selector) → Cont G₂ φ (TChan (selection lab (SType.force s₁) (SType.force s₂))))
+    → Command G
+  NSelect : ∀ {φ G₁ G₂ m alt}
+    → (ss : SSplit G G₁ G₂)
+    → (lab : Fin m)
+    → (vch : Val G₁ (TChan (sintN m alt)))
+    → (κ : Cont G₂ φ (TChan (SType.force (alt lab))))
+    → Command G
+  NBranch : ∀ {φ G₁ G₂ m alt}
+    → (ss : SSplit G G₁ G₂)
+    → (vch : Val G₁ (TChan (sextN m alt)))
+    → (dcont : (lab : Fin m) → Cont G₂ φ (TChan (SType.force (alt lab))))
+    → Command G
       
 -- 
 

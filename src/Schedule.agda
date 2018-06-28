@@ -73,6 +73,11 @@ step (tcons{G₁}{G₂} ss cmd@(NSelect ss-vκ lab vch κ) tp) with ssplit-refl-
 step (tcons ss cmd@(NBranch ss-vκ vch dcont) tp) =
   NBranchSkipped , (tsnoc ss tp cmd)
 
+-- stuff to run ...
+data Gas : Set where
+  Empty : Gas
+  More  : Gas → Gas
+
 -- outcomes of scheduling
 data Outcome : Set where
   Terminated : Outcome
