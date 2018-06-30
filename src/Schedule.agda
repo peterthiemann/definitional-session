@@ -173,6 +173,13 @@ module Original where
 
 open Alternative
 
+single-step : (∃ λ G → ThreadPool G) → Event × (∃ λ G → ThreadPool G)
+single-step (G , tp)
+  with ssplit-refl-left-inactive G
+... | G' , ina-G' , ss-GG'
+  with step ss-GG' tp (tnil ina-G')
+... | ev , tp' = ev , ( , tp')
+
 -- stuff to run ...
 data Gas : Set where
   Empty : Gas
@@ -188,11 +195,9 @@ data Outcome : Set where
 schedule : {G : SCtx} → Gas → ThreadPool G → Outcome
 schedule Empty tp = OutOfGas tp
 schedule{G} (More gas) tp
-  with ssplit-refl-left-inactive G
-... | G' , ina-G' , ss-GG'
-  with step ss-GG' tp (tnil ina-G')
-... | Terminated , tp' = Terminated
-... | ev , tp' = ev , (schedule gas tp')
+  with single-step (, tp)
+... | Terminated , _ , tp' = Terminated
+... | ev , _ , tp' = ev , (schedule gas tp')
 
 -- start main thread
 start : Gas → Expr [] TUnit → Outcome
