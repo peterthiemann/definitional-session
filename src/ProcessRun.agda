@@ -208,7 +208,7 @@ runProc G (par sp P₁ P₂) ϱ with split-env sp ϱ
     ssfinal = ssplit-append (G₁' ++ G₂') G ss-G1'G2' ss-GG1G2
 
 runProc G (res s P) ϱ with ssplit-refl-right-inactive G
-... | G1 , ina-G1 , ss-GG1G with runProc (just (SType.force s , POSNEG) ∷ G) P (vcons (ss-posneg ss-GG1G) (VChan true (here-pos ina-G1 (subF-refl _))) (vcons (ss-left ss-GG1G) (VChan false (here-neg ina-G1 (subF-refl _))) (lift-venv ϱ)))
+... | G1 , ina-G1 , ss-GG1G with runProc (just (SType.force s , POSNEG) ∷ G) P (vcons (ss-posneg ss-GG1G) (VChan POS (here-pos ina-G1 (subF-refl _))) (vcons (ss-left ss-GG1G) (VChan NEG (here-neg ina-G1 (subF-refl _))) (lift-venv ϱ)))
 ... | G' , tp = G' ++ just (SType.force s , POSNEG) ∷ [] , tp'
   where
     tp' : ThreadPool ((G' ++ just (SType.force s , POSNEG) ∷ []) ++ G)
