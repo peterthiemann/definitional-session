@@ -21,6 +21,9 @@ open import Values
 open import Session
 open import Schedule
 
+open import ProcessSyntax
+open import ProcessRun
+
 -- resources appear in pairs
 data Paired : SEntry → Set where
   aon-nothing : Paired nothing
@@ -92,7 +95,7 @@ matchWaitAndGo-preserves-paired {ss = ss-top} {ss-cl} {VChan cl-b cl-vcr} {ss-GG
 matchWaitAndGo-preserves-paired {ss = ss-top} {ss-cl} {VChan cl-b cl-vcr} {ss-GG' = ss-tp} all-paired (tcons ss cmd@(Wait ss₁ (VChan w-b w-vcr) κ) tp-wl) tp-acc refl | Gi , ss-g3gi , ss-g4g2 | Gi' , ss-g3gi' , ss-gtpacc | Gchannels , Gother , ss-top' , ss-channels , ss-others | just x = {!!}
 -- remains to prove All Paired Gother
 
-step-preserves-paired : ∀ {G G' ev tp'} → All Paired G → (tp : ThreadPool G) → step tp ≡ (_,_ {G'} ev tp') → All Paired G'
+step-preserves-paired : ∀ {G G' ev tp'} → All Paired G → (tp : ThreadPool G) → Original.step tp ≡ (_,_ {G'} ev tp') → All Paired G'
 step-preserves-paired all-paired tp step-≡ with tp
 step-preserves-paired all-paired tp refl | tnil ina = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (Fork ss₁ κ₁ κ₂) tp' = all-paired
@@ -171,3 +174,77 @@ deadlocked (tnil ina) = ⊥
 deadlocked tp@(tcons _ _ _) = ¬ canStep tp
 
 -- progress
+
+-- adequacy
+
+-- V: letpair (x,y) = (V,W) in E --> E[ V,W / x,y ]
+
+-- P: <E[fork e]> --> <E[()]> | <e>
+
+-- P: <E[new s]> --> (vcd) <E[(c,d)]>
+
+-- P: (vcd) <E[send c v]> | <F[rec d]>  --> (vcd) <E[c]> | <F[(d,v)]>
+
+-- P: (vcd) <E[close c]> | <F[wait d]>  --> (vcd) <E[()]> | <F[()]>
+
+mkclose : ∀ {Φ} → Expr (TUnit ∷ Φ) TUnit → Expr (TChan send! ∷ Φ) TUnit
+mkclose = λ e → letbind (left (split-all-right _)) (close (here [])) e
+
+mkwait : ∀ {Φ} → Expr (TUnit ∷ Φ) TUnit → Expr (TChan send? ∷ Φ) TUnit
+mkwait = λ e → letbind (left (split-all-right _)) (wait (here [])) e
+
+mklhs : ∀ {Φ Φ₁ Φ₂}
+  → Split Φ Φ₁ Φ₂
+  → Expr (TUnit ∷ Φ₁) TUnit
+  → Expr (TUnit ∷ Φ₂) TUnit
+  → Proc Φ
+mklhs sp e f = 
+  res (delay send!)
+      (par (left (rght sp))
+           (exp (mkclose e)) (exp (mkwait f)))
+
+mkrhs : ∀ {Φ Φ₁ Φ₂}
+  → Split Φ Φ₁ Φ₂
+  → Expr (TUnit ∷ Φ₁) TUnit
+  → Expr (TUnit ∷ Φ₂) TUnit
+  → Proc Φ
+mkrhs sp e f =
+  par sp (exp (letbind (split-all-right _) (unit []) e))
+         (exp (letbind (split-all-right _) (unit []) f))
+
+mkclose' : Expr (TChan send! ∷ []) TUnit
+mkclose' = close (here [])
+
+mkwait' : Expr (TChan send? ∷ []) TUnit
+mkwait' = wait (here [])
+
+mklhs' : Proc []
+mklhs' = 
+  res (delay send!)
+      (par (left (rght []))
+           (exp (mkclose')) (exp (mkwait')))
+
+mkrhs' : Proc []
+mkrhs' =
+  par [] (exp (unit []))
+         (exp (unit []))
+
+one-step : ∀ {G} → (∃ λ G' → ThreadPool (G' ++ G)) → Event × (∃ λ G → ThreadPool G)
+one-step{G} (G1 , tp)
+  with ssplit-refl-left-inactive (G1 ++ G)
+... | G' , ina-G' , ss-GG'
+  with Alternative.step ss-GG' tp (tnil ina-G')
+... | ev , tp' = ev , ( , tp')
+
+
+-- runProc : ∀ {Φ} → (G : SCtx) → Proc Φ → VEnv G Φ → ∃ λ G' → ThreadPool (G' ++ G)
+reduction' : 
+  let lhs = (runProc [] (mklhs') (vnil []-inactive)) in
+  let rhs = (runProc [] (mkrhs') (vnil []-inactive)) in
+  one-step ((proj₁ lhs) , (proj₂ lhs)) ≡
+  (Closed , nothing ∷ (proj₁ rhs) , lift-threadpool (proj₂ rhs))
+reduction'
+  with ssplit-refl-left-inactive []
+... | G' , ina-G' , ss-GG'
+  = refl
+
