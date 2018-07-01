@@ -189,63 +189,89 @@ one-step{G} (G1 , tp)
 -- V: letpair (x,y) = (V,W) in E --> E[ V,W / x,y ]
 
 -- P: <E[fork e]> --> <E[()]> | <e>
+module StepFork where
+
+  mkfork : ∀ {Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Expr Φ₁ TUnit → Expr (TUnit ∷ Φ₂) TUnit → Expr Φ TUnit
+  mkfork sp e E = letbind sp (fork e) E
+
+  mklhs : ∀ {Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂
+    → Expr Φ₁ TUnit → Expr (TUnit ∷ Φ₂) TUnit → Proc Φ
+  mklhs sp e E =
+    exp (mkfork sp e E)
+
+  mkrhs : ∀ {Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂
+    → Expr Φ₁ TUnit → Expr (TUnit ∷ Φ₂) TUnit → Proc Φ
+  mkrhs sp e E =
+    par sp (exp e) (exp (letbind (split-all-right _) (unit []) E))
+
+  reduction : (e : Expr [] TUnit) → (E : Expr (TUnit ∷ []) TUnit)
+    →
+      let lhs = (runProc [] (mklhs [] e E) (vnil []-inactive)) in
+      let rhs = (runProc [] (mkrhs [] e E) (vnil []-inactive)) in
+      one-step lhs ≡
+      (Forked , proj₁ rhs , proj₂ rhs)
+  reduction e E
+    with ssplit-refl-left-inactive []
+  ... | G' , ina-G' , ss-GG'
+    = {!!}
 
 -- P: <E[new s]> --> (vcd) <E[(c,d)]>
 
 -- P: (vcd) <E[send c v]> | <F[rec d]>  --> (vcd) <E[c]> | <F[(d,v)]>
 
 -- P: (vcd) <E[close c]> | <F[wait d]>  --> (vcd) <E[()]> | <F[()]>
-module CloseWait where
+module StepCloseWait where
+
   mkclose : ∀ {Φ} → Expr (TUnit ∷ Φ) TUnit → Expr (TChan send! ∷ Φ) TUnit
   mkclose = λ e → letbind (left (split-all-right _)) (close (here [])) e
 
   mkwait : ∀ {Φ} → Expr (TUnit ∷ Φ) TUnit → Expr (TChan send? ∷ Φ) TUnit
   mkwait = λ e → letbind (left (split-all-right _)) (wait (here [])) e
 
-  mklhs : ∀ {Φ Φ₁ Φ₂}
-    → Split Φ Φ₁ Φ₂
-    → Expr (TUnit ∷ Φ₁) TUnit
-    → Expr (TUnit ∷ Φ₂) TUnit
-    → Proc Φ
-  mklhs sp e f = 
-    res (delay send!)
-        (par (left (rght sp))
-             (exp (mkclose e)) (exp (mkwait f)))
+  module General where
 
-  mkrhs : ∀ {Φ Φ₁ Φ₂}
-    → Split Φ Φ₁ Φ₂
-    → Expr (TUnit ∷ Φ₁) TUnit
-    → Expr (TUnit ∷ Φ₂) TUnit
-    → Proc Φ
-  mkrhs sp e f =
-    par sp (exp (letbind (split-all-right _) (unit []) e))
-           (exp (letbind (split-all-right _) (unit []) f))
+    mklhs : ∀ {Φ Φ₁ Φ₂}
+      → Split Φ Φ₁ Φ₂
+      → Expr (TUnit ∷ Φ₁) TUnit
+      → Expr (TUnit ∷ Φ₂) TUnit
+      → Proc Φ
+    mklhs sp e f = 
+      res (delay send!)
+          (par (left (rght sp))
+               (exp (mkclose e)) (exp (mkwait f)))
 
-  mkclose' : Expr (TChan send! ∷ []) TUnit
-  mkclose' = close (here [])
+    mkrhs : ∀ {Φ Φ₁ Φ₂}
+      → Split Φ Φ₁ Φ₂
+      → Expr (TUnit ∷ Φ₁) TUnit
+      → Expr (TUnit ∷ Φ₂) TUnit
+      → Proc Φ
+    mkrhs sp e f =
+      par sp (exp (letbind (split-all-right _) (unit []) e))
+             (exp (letbind (split-all-right _) (unit []) f))
 
-  mkwait' : Expr (TChan send? ∷ []) TUnit
-  mkwait' = wait (here [])
+  module ClosedWithContext where
+    mklhs : Expr (TUnit ∷ []) TUnit
+      → Expr (TUnit ∷ []) TUnit
+      → Proc []
+    mklhs e f = 
+      res (delay send!)
+          (par (left (rght []))
+               (exp (mkclose e)) (exp (mkwait f)))
 
-  mklhs' : Proc []
-  mklhs' = 
-    res (delay send!)
-        (par (left (rght []))
-             (exp (mkclose')) (exp (mkwait')))
+    mkrhs : Expr (TUnit ∷ []) TUnit
+      → Expr (TUnit ∷ []) TUnit
+      → Proc []
+    mkrhs e f =
+      par [] (exp (letbind [] (unit []) e))
+             (exp (letbind [] (unit []) f))
 
-  mkrhs' : Proc []
-  mkrhs' =
-    par [] (exp (unit []))
-           (exp (unit []))
-
-  -- runProc : ∀ {Φ} → (G : SCtx) → Proc Φ → VEnv G Φ → ∃ λ G' → ThreadPool (G' ++ G)
-  reduction' : 
-    let lhs = (runProc [] (mklhs') (vnil []-inactive)) in
-    let rhs = (runProc [] (mkrhs') (vnil []-inactive)) in
-    one-step ((proj₁ lhs) , (proj₂ lhs)) ≡
-    (Closed , nothing ∷ (proj₁ rhs) , lift-threadpool (proj₂ rhs))
-  reduction'
-    with ssplit-refl-left-inactive []
-  ... | G' , ina-G' , ss-GG'
-    = refl
-
+    reduction :
+      (e f : Expr (TUnit ∷ []) TUnit) →
+      let lhs = (runProc [] (mklhs e f) (vnil []-inactive)) in
+      let rhs = (runProc [] (mkrhs e f) (vnil []-inactive)) in
+      one-step lhs ≡
+      (Closed , nothing ∷ proj₁ rhs , lift-threadpool (proj₂ rhs))
+    reduction e f
+      with ssplit-refl-left-inactive []
+    ... | G' , ina-G' , ss-GG'
+      = refl
