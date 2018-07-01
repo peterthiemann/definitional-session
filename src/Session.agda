@@ -21,13 +21,13 @@ open import Channel
 open import Values
 
 
-data Cont (G : SCtx) (φ : TCtx) (t : Type) : Set where
-  halt :
-    Inactive G 
+data Cont (G : SCtx) (φ : TCtx) : (t : Type) → Set where
+  halt : ∀ {t} 
+    → Inactive G 
     → (un-t : Unr t)
     → Cont G φ t
 
-  bind : ∀ {φ₁ φ₂ G₁ G₂ t₂}
+  bind : ∀ {φ₁ φ₂ G₁ G₂ t t₂}
     → (ts : Split φ φ₁ φ₂)
     → (ss : SSplit G G₁ G₂)
     → (e₂ : Expr (t ∷ φ₁) t₂)
@@ -35,7 +35,15 @@ data Cont (G : SCtx) (φ : TCtx) (t : Type) : Set where
     → (κ₂ : Cont G₂ φ₂ t₂)
     → Cont G φ t
 
-  subsume : ∀ {t₁}
+  bind-thunk : ∀ {φ₁ φ₂ G₁ G₂ t₂}
+    → (ts : Split φ φ₁ φ₂)
+    → (ss : SSplit G G₁ G₂)
+    → (e₂ : Expr φ₁ t₂)
+    → (ϱ₂ : VEnv G₁ φ₁)
+    → (κ₂ : Cont G₂ φ₂ t₂)
+    → Cont G φ TUnit
+
+  subsume : ∀ {t t₁}
     → SubT t t₁
     → Cont G φ t₁
     → Cont G φ t
@@ -150,7 +158,7 @@ run{φ}{φ₁}{G = G}{G₁ = G₁} tsp ssp (fork e) ϱ κ with ssplit-refl-left 
 ... | (Gp1 , Gp2) , ss-Gp , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ' ϱ₂
 ... | ina-Gp2 with inactive-right-ssplit-transform ss-Gp ina-Gp2
 ... | ss-Gp' rewrite sym (ssplit-function2 ss-g1g1g2 ss-Gp') =
-  Fork ssp (bind sp-φφφ' ss-g1g1g2 (lift-expr UUnit e) ϱ (halt ina-Gp2 UUnit)) κ
+  Fork ssp (bind-thunk sp-φφφ' ss-g1g1g2 e ϱ (halt ina-Gp2 UUnit)) κ
 run tsp ssp (new unr-φ s) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina rewrite inactive-left-ssplit ssp ina = New s κ
 run tsp ssp (close ch) ϱ κ with access ϱ ch
@@ -219,11 +227,15 @@ apply-cont : ∀ {G G₁ G₂ t φ}
   → Val G₁ t
   → Command G
 apply-cont ssp (halt inG un-t) v with unrestricted-val un-t v
-... | inG2  with inactive-right-ssplit ssp inG
+... | inG2 with inactive-right-ssplit ssp inG
 ... | refl = Halt (ssplit-inactive ssp inG2 inG) un-t v
 apply-cont ssp (bind ts ss e₂ ϱ₂ κ) v with ssplit-compose3 ssp ss
 ... | Gi , ss-GGiG4 , ss-GiG1G3 =
   run (left ts) ss-GGiG4 e₂ (vcons ss-GiG1G3 v ϱ₂) κ
+apply-cont ssp (bind-thunk ts ss e₂ ϱ₂ κ) v with unrestricted-val UUnit v
+... | inG1 with inactive-left-ssplit ssp inG1
+... | refl =
+  run ts ss e₂ ϱ₂ κ
 apply-cont ssp (subsume t≤t' κ) v =
   apply-cont ssp κ (coerce v t≤t')
 
@@ -247,6 +259,7 @@ lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
 lift-cont : ∀ {G t φ} → Cont G φ t → Cont (nothing ∷ G) φ t
 lift-cont (halt inG un-t) = halt (::-inactive inG) un-t
 lift-cont (bind ts ss e₂ ϱ₂ κ) = bind ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
+lift-cont (bind-thunk ts ss e₂ ϱ₂ κ) = bind-thunk ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
 lift-cont (subsume t≤t' κ) = subsume t≤t' (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
