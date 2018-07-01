@@ -41,7 +41,7 @@ module Alternative where
     with ssplit-compose ss ss₁
   ... | Gi , ss₁₃ , ss₂₄ with ssplit-refl-right G₁ | ssplit-refl-right G₂
   ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
-    Forked , (tappend ss-top ((tcons ss₁₃ (Stopped ss-G1GunitG1 (VUnit (ssplit-inactive-right ss-G1GunitG1)) κ₁)
+    Forked , (tappend ss-top ((tcons ss₁₃ (apply-cont ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
                              (tcons ss₂₄ (Stopped ss-G2GuG2 (VUnit (ssplit-inactive-right ss-G2GuG2)) κ₂) tp))) tp2)
 
   step ss-top (tcons ss (Stopped ss₁ v κ) tp) tp2 =
