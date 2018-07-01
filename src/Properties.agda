@@ -187,6 +187,31 @@ one-step{G} (G1 , tp)
 
 
 -- V: letpair (x,y) = (V,W) in E --> E[ V,W / x,y ]
+module StepPair where
+  -- this will require multiple steps to execute
+  mklhs : ∀ {t₁ t₂} → Expr (t₁ ∷ t₂ ∷ []) TUnit → Expr (t₁ ∷ t₂ ∷ []) TUnit
+  mklhs E =
+    letbind (left (left [])) (pair (left (rght [])) (here []) (here []))
+    (letpair (left []) (here []) E)
+
+  restart : ∀ {G} → Command G → Command G
+  restart (Stopped ss v κ) = apply-cont ss κ v
+  restart cmd = cmd
+
+  reduction :  ∀ {t₁ t₂}
+    → (E : Expr (t₁ ∷ t₂ ∷ []) TUnit)
+    → (v₁ : Val [] t₁)
+    → (v₂ : Val [] t₂)
+    → let ϱ = vcons ss-[] v₁ (vcons ss-[] v₂ (vnil []-inactive)) in 
+      let lhs = (run (left (left [])) ss-[] (mklhs E) ϱ (halt []-inactive UUnit)) in
+      let rhs = (run (left (left [])) ss-[] E ϱ (halt []-inactive UUnit)) in
+      restart lhs ≡
+      rhs 
+  reduction E v₁ v₂
+    with split-env (left (left [])) (vcons ss-[] v₁ (vcons ss-[] v₂ (vnil []-inactive)))
+  ... | spe
+    = refl
+
 
 -- P: <E[fork e]> --> <E[()]> | <e>
 module StepFork where
@@ -204,6 +229,12 @@ module StepFork where
   mkrhs sp e E =
     par sp (exp e) (exp (letbind (split-all-right _) (unit []) E))
 
+  -- weaken2-command : ∀ {G} G' G'' → Command (G' ++ G) → Command (G' ++ inactive-clone G'' ++ G)
+
+  -- obviously true, but requires a nasty inductive proof
+  postulate
+    weaken2-ident : ∀ {G} → (cmd : Command G) → weaken2-command [] [] cmd ≡ cmd
+
   reduction : (e : Expr [] TUnit) → (E : Expr (TUnit ∷ []) TUnit)
     →
       let lhs = (runProc [] (mklhs [] e E) (vnil []-inactive)) in
@@ -214,7 +245,9 @@ module StepFork where
   reduction e E
     with ssplit-refl-left-inactive []
   ... | G' , ina-G' , ss-GG'
-    = {!!}
+    rewrite weaken2-ident (run [] ss-[] e (vnil []-inactive) (halt []-inactive UUnit))
+    = refl
+
 
 -- P: <E[new s]> --> (vcd) <E[(c,d)]>
 module StepNew where
@@ -242,7 +275,7 @@ module StepNew where
   ... | G' , ina-G' , ss-GG'
     = refl
 
--- P: (vcd) <E[send c v]> | <F[rec d]>  --> (vcd) <E[c]> | <F[(d,v)]>
+-- P: (vcd) <E[send c v]> | <F[recv d]>  --> (vcd) <E[c]> | <F[(d,v)]>
 
 -- P: (vcd) <E[close c]> | <F[wait d]>  --> (vcd) <E[()]> | <F[()]>
 module StepCloseWait where
