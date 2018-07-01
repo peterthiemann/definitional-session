@@ -240,7 +240,7 @@ module StepNew where
   reduction s E
     with ssplit-refl-left-inactive []
   ... | G' , ina-G' , ss-GG'
-    = {!refl!}
+    = refl
 
 -- P: (vcd) <E[send c v]> | <F[rec d]>  --> (vcd) <E[c]> | <F[(d,v)]>
 
