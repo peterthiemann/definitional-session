@@ -34,7 +34,7 @@ inactive-clone (x ∷ G) = nothing ∷ inactive-clone G
 
 inactive-extension : ∀ {G} → Inactive G → (G' : SCtx) → Inactive (inactive-clone G' ++ G)
 inactive-extension inaG [] = inaG
-inactive-extension inaG (x ∷ G') = ::-inactive (inactive-clone G' ++ _) (inactive-extension inaG G')
+inactive-extension inaG (x ∷ G') = ::-inactive (inactive-extension inaG G')
 
 splitting-extension : ∀ {G G₁ G₂} (G' : SCtx)
   → SSplit G G₁ G₂ → SSplit (inactive-clone G' ++ G) (inactive-clone G' ++ G₁) (inactive-clone G' ++ G₂)
@@ -103,7 +103,7 @@ weaken1-threadpool G' (tcons ss cmd tp) = tcons (splitting-extension G' ss) (wea
 inactive-insertion : ∀ {G} G' G'' → Inactive (G' ++ G) → Inactive (G' ++ inactive-clone G'' ++ G)
 inactive-insertion [] G'' ina-G'G = inactive-extension ina-G'G G''
 inactive-insertion (just x ∷ G') G'' ()
-inactive-insertion (nothing ∷ G') G'' (::-inactive .(G' ++ _) ina-G'G) = ::-inactive (G' ++ inactive-clone G'' ++ _) (inactive-insertion G' G'' ina-G'G)
+inactive-insertion (nothing ∷ G') G'' (::-inactive ina-G'G) = ::-inactive (inactive-insertion G' G'' ina-G'G)
 
 splitting-insertion : ∀ {G G₁ G₂} {G' G₁' G₂'} G''
   → SSplit G' G₁' G₂'

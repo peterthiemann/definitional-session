@@ -235,24 +235,24 @@ extract-inactive-from-cont{G} un-t κ = ssplit-refl-right-inactive G
 lift-val : ∀ {G t} → Val G t → Val (nothing ∷ G) t
 lift-venv : ∀ {G φ} → VEnv G φ → VEnv (nothing ∷ G) φ
 
-lift-val (VUnit x) = VUnit (::-inactive _ x)
-lift-val (VInt i x) = VInt i (::-inactive _ x)
+lift-val (VUnit x) = VUnit (::-inactive x)
+lift-val (VInt i x) = VInt i (::-inactive x)
 lift-val (VPair x v v₁) = VPair (ss-both x) (lift-val v) (lift-val v₁)
 lift-val (VChan b vcr) = VChan b (there vcr)
 lift-val (VFun lu ϱ e) = VFun lu (lift-venv ϱ) e
 
-lift-venv (vnil ina) = vnil (::-inactive _ ina)
+lift-venv (vnil ina) = vnil (::-inactive ina)
 lift-venv (vcons ssp v ϱ) = vcons (ss-both ssp) (lift-val v) (lift-venv ϱ)
 
 lift-cont : ∀ {G t φ} → Cont G φ t → Cont (nothing ∷ G) φ t
-lift-cont (halt inG un-t) = halt (::-inactive _ inG) un-t
+lift-cont (halt inG un-t) = halt (::-inactive inG) un-t
 lift-cont (bind ts ss e₂ ϱ₂ κ) = bind ts (ss-both ss) e₂ (lift-venv ϱ₂) (lift-cont κ)
 lift-cont (subsume t≤t' κ) = subsume t≤t' (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
 lift-command (Fork ss κ₁ κ₂) = Fork (ss-both ss) (lift-cont κ₁) (lift-cont κ₂)
 lift-command (Stopped ss v κ) = Stopped (ss-both ss) (lift-val v) (lift-cont κ)
-lift-command (Halt x unr-t v) = Halt (::-inactive _ x) unr-t (lift-val v)
+lift-command (Halt x unr-t v) = Halt (::-inactive x) unr-t (lift-val v)
 lift-command (New s κ) = New s (lift-cont κ)
 lift-command (Close ss v κ) = Close (ss-both ss) (lift-val v) (lift-cont κ)
 lift-command (Wait ss v κ) = Wait (ss-both ss) (lift-val v) (lift-cont κ)
@@ -281,7 +281,7 @@ tappend ss-top (tcons ss cmd tp1) tp2 with ssplit-compose ss-top ss
 
 -- apply the inactive extension to a thread pool
 lift-threadpool : ∀ {G} → ThreadPool G → ThreadPool (nothing ∷ G)
-lift-threadpool (tnil ina) = tnil (::-inactive _ ina)
+lift-threadpool (tnil ina) = tnil (::-inactive ina)
 lift-threadpool (tcons ss cmd tp) = tcons (ss-both ss) (lift-command cmd) (lift-threadpool tp)
 
 matchWaitAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ}
