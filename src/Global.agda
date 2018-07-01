@@ -321,15 +321,15 @@ ssplit-rotate (ss-negpos ss-g12) (ss-right ss-g2122) (ss-both ss-g211212) with s
 -- a session context is inactive if all its entries are void
 data Inactive : (G : SCtx) → Set where
   []-inactive : Inactive []
-  ::-inactive :  (G : SCtx) → Inactive G → Inactive (nothing ∷ G)
+  ::-inactive : ∀ {G : SCtx} → Inactive G → Inactive (nothing ∷ G)
 
 inactive-ssplit-trivial : ∀ {G} → Inactive G → SSplit G G G
 inactive-ssplit-trivial []-inactive = ss-[]
-inactive-ssplit-trivial (::-inactive G ina) = ss-both (inactive-ssplit-trivial ina)
+inactive-ssplit-trivial (::-inactive ina) = ss-both (inactive-ssplit-trivial ina)
 
 ssplit-inactive : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₁ → Inactive G₂ → Inactive G
 ssplit-inactive ss-[] []-inactive []-inactive = []-inactive
-ssplit-inactive (ss-both ssp) (::-inactive G ina1) (::-inactive G₁ ina2) = ::-inactive _ (ssplit-inactive ssp ina1 ina2)
+ssplit-inactive (ss-both ssp) (::-inactive ina1) (::-inactive ina2) = ::-inactive (ssplit-inactive ssp ina1 ina2)
 ssplit-inactive (ss-left ssp) () ina2
 ssplit-inactive (ss-right ssp) ina1 ()
 ssplit-inactive (ss-posneg ssp) () ina2
@@ -337,8 +337,8 @@ ssplit-inactive (ss-negpos ssp) ina1 ()
 
 ssplit-inactive-left : ∀ {G G'} → SSplit G G G' → Inactive G'
 ssplit-inactive-left ss-[] = []-inactive
-ssplit-inactive-left (ss-both ssp) = ::-inactive _ (ssplit-inactive-left ssp)
-ssplit-inactive-left (ss-left ssp) = ::-inactive _ (ssplit-inactive-left ssp)
+ssplit-inactive-left (ss-both ssp) = ::-inactive (ssplit-inactive-left ssp)
+ssplit-inactive-left (ss-left ssp) = ::-inactive (ssplit-inactive-left ssp)
 
 ssplit-refl-left : (G : SCtx) → Σ SCtx λ G' → SSplit G G G'
 ssplit-refl-left [] = [] , ss-[]
@@ -350,13 +350,13 @@ ssplit-refl-left (nothing ∷ G) with ssplit-refl-left G
 ssplit-refl-left-inactive : (G : SCtx) → Σ SCtx λ G' → Inactive G' × SSplit G G G'
 ssplit-refl-left-inactive [] = [] , []-inactive , ss-[]
 ssplit-refl-left-inactive (x ∷ G) with ssplit-refl-left-inactive G
-ssplit-refl-left-inactive (just x ∷ G) | G' , ina-G' , ss-GG' = nothing ∷ G' , ::-inactive G' ina-G' , ss-left ss-GG'
-ssplit-refl-left-inactive (nothing ∷ G) | G' , ina-G' , ss-GG' = nothing ∷ G' , ::-inactive G' ina-G' , ss-both ss-GG'
+ssplit-refl-left-inactive (just x ∷ G) | G' , ina-G' , ss-GG' = nothing ∷ G' , ::-inactive ina-G' , ss-left ss-GG'
+ssplit-refl-left-inactive (nothing ∷ G) | G' , ina-G' , ss-GG' = nothing ∷ G' , ::-inactive ina-G' , ss-both ss-GG'
 
 ssplit-inactive-right : ∀ {G G'} → SSplit G G' G → Inactive G'
 ssplit-inactive-right ss-[] = []-inactive
-ssplit-inactive-right (ss-both ss) = ::-inactive _ (ssplit-inactive-right ss)
-ssplit-inactive-right (ss-right ss) = ::-inactive _ (ssplit-inactive-right ss)
+ssplit-inactive-right (ss-both ss) = ::-inactive (ssplit-inactive-right ss)
+ssplit-inactive-right (ss-right ss) = ::-inactive (ssplit-inactive-right ss)
 
 ssplit-refl-right : (G : SCtx) → Σ SCtx λ G' → SSplit G G' G
 ssplit-refl-right [] = [] , ss-[]
@@ -368,21 +368,21 @@ ssplit-refl-right (nothing ∷ G) with ssplit-refl-right G
 ssplit-refl-right-inactive : (G : SCtx) → Σ SCtx λ G' → Inactive G' × SSplit G G' G
 ssplit-refl-right-inactive [] = [] , []-inactive , ss-[]
 ssplit-refl-right-inactive (x ∷ G) with ssplit-refl-right-inactive G
-ssplit-refl-right-inactive (just x ∷ G) | G' , ina-G' , ssp' = nothing ∷ G' , ::-inactive G' ina-G' , ss-right ssp'
-ssplit-refl-right-inactive (nothing ∷ G) | G' , ina-G' , ssp' = nothing ∷ G' , ::-inactive G' ina-G' , ss-both ssp'
+ssplit-refl-right-inactive (just x ∷ G) | G' , ina-G' , ssp' = nothing ∷ G' , ::-inactive ina-G' , ss-right ssp'
+ssplit-refl-right-inactive (nothing ∷ G) | G' , ina-G' , ssp' = nothing ∷ G' , ::-inactive ina-G' , ss-both ssp'
 
 inactive-left-ssplit : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₁ → G ≡ G₂
 inactive-left-ssplit ss-[] []-inactive = refl
-inactive-left-ssplit (ss-both ss) (::-inactive G inG₁) =
+inactive-left-ssplit (ss-both ss) (::-inactive inG₁) =
   cong (_∷_ nothing) (inactive-left-ssplit ss inG₁)
-inactive-left-ssplit (ss-right ss) (::-inactive G inG₁) =
+inactive-left-ssplit (ss-right ss) (::-inactive inG₁) =
   cong (_∷_ (just _)) (inactive-left-ssplit ss inG₁)
 
 inactive-right-ssplit : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₂ → G ≡ G₁
 inactive-right-ssplit ss-[] []-inactive = refl
-inactive-right-ssplit (ss-both ssp) (::-inactive G ina) =
+inactive-right-ssplit (ss-both ssp) (::-inactive ina) =
   cong (_∷_ nothing) (inactive-right-ssplit ssp ina)
-inactive-right-ssplit (ss-left ssp) (::-inactive G ina) =
+inactive-right-ssplit (ss-left ssp) (::-inactive ina) =
   cong (_∷_ (just _)) (inactive-right-ssplit ssp ina)
 
 inactive-right-ssplit-sym : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₂ → G₁ ≡ G
@@ -390,8 +390,8 @@ inactive-right-ssplit-sym ssp ina = sym (inactive-right-ssplit ssp ina)
 
 inactive-right-ssplit-transform : ∀ {G G₁ G₂} → SSplit G G₁ G₂ → Inactive G₂ → SSplit G G G₂
 inactive-right-ssplit-transform ss-[] []-inactive = ss-[]
-inactive-right-ssplit-transform (ss-both ss-GG1G2) (::-inactive G ina-G2) = ss-both (inactive-right-ssplit-transform ss-GG1G2 ina-G2)
-inactive-right-ssplit-transform (ss-left ss-GG1G2) (::-inactive G ina-G2) = ss-left (inactive-right-ssplit-transform ss-GG1G2 ina-G2)
+inactive-right-ssplit-transform (ss-both ss-GG1G2) (::-inactive ina-G2) = ss-both (inactive-right-ssplit-transform ss-GG1G2 ina-G2)
+inactive-right-ssplit-transform (ss-left ss-GG1G2) (::-inactive ina-G2) = ss-left (inactive-right-ssplit-transform ss-GG1G2 ina-G2)
 inactive-right-ssplit-transform (ss-right ss-GG1G2) ()
 inactive-right-ssplit-transform (ss-posneg ss-GG1G2) ()
 inactive-right-ssplit-transform (ss-negpos ss-GG1G2) ()
