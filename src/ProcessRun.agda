@@ -78,6 +78,7 @@ weaken1-venv G' (vcons ssp v ϱ) = vcons (splitting-extension G' ssp) (weaken1-v
 weaken1-cont : ∀ {G t φ} G' → Cont G φ t → Cont (inactive-clone G' ++ G) φ t
 weaken1-cont G' (halt inaG un-t) = halt (inactive-extension inaG G') un-t
 weaken1-cont G' (bind ts ss e₂ ϱ₂ κ) = bind ts (splitting-extension G' ss) e₂ (weaken1-venv G' ϱ₂) (weaken1-cont G' κ)
+weaken1-cont G' (bind-thunk ts ss e₂ ϱ₂ κ) = bind-thunk ts (splitting-extension G' ss) e₂ (weaken1-venv G' ϱ₂) (weaken1-cont G' κ)
 weaken1-cont G' (subsume x κ) = subsume x (weaken1-cont G' κ)
 
 weaken1-command : ∀ {G} G' → Command G → Command (inactive-clone G' ++ G)
@@ -158,6 +159,8 @@ weaken2-cont : ∀ {G t φ} G' G'' → Cont (G' ++ G) φ t → Cont (G' ++ inact
 weaken2-cont G' G'' (halt x un-t) = halt (inactive-insertion G' G'' x) un-t
 weaken2-cont G' G'' (bind ts ss e₂ ϱ₂ κ) with split-append G' ss
 ... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = bind ts (splitting-insertion G'' ss' ss0) e₂ (weaken2-venv G₁' G'' ϱ₂) (weaken2-cont G₂' G'' κ)
+weaken2-cont G' G'' (bind-thunk ts ss e₂ ϱ₂ κ) with split-append G' ss
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = bind-thunk ts (splitting-insertion G'' ss' ss0) e₂ (weaken2-venv G₁' G'' ϱ₂) (weaken2-cont G₂' G'' κ)
 weaken2-cont G' G'' (subsume x κ) = subsume x (weaken2-cont G' G'' κ)
 
 weaken2-command : ∀ {G} G' G'' → Command (G' ++ G) → Command (G' ++ inactive-clone G'' ++ G)
