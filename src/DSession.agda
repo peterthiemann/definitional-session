@@ -15,7 +15,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
 open import Typing
-open import DSyntax
+open import Syntax
 open import Global
 open import Channel
 open import Values
@@ -30,7 +30,7 @@ data Cont (G : SCtx) (φ : TCtx) (t : Type) : Type → Set where
   bind : ∀ {φ₁ φ₂ G₁ G₂ t₂ t₃}
     → (ts : Split φ φ₁ φ₂)
     → (ss : SSplit G G₁ G₂)
-    → (e₂ : DExpr (t ∷ φ₁) t₂)
+    → (e₂ : Expr (t ∷ φ₁) t₂)
     → (ϱ₂ : VEnv G₁ φ₁)
     → (κ₂ : Cont G₂ φ₂ t₂ t₃)
     → Cont G φ t t₃
@@ -130,6 +130,19 @@ data Command (G : SCtx) (t : Type) : Set where
     → Command G t
 
 -- cont G = ∀ G' → G ≤ G' → SSplit G' Gval Gcont → Val Gval t → 
+
+data _≼_ G : SCtx → Set where
+  ≼-rfl : G ≼ G
+  ≼-ext : ∀ {G'} → G ≼ G' → G ≼ (nothing ∷ G')
+
+{-
+mbindf : ∀ {Gin G1in G2in G1out G2out t t'} → SSplit Gin G1in G2in
+  → Command G1in G1out t
+  → (∀ G2in' G1out' G2out' → G2in ≼ G2in' → G1out ≼ G1out' → G2out ≼ G2out'
+    → Val G1out' t → Command G2in' G2out' t')
+  → Command Gin G2out t'
+mbindf = {!!}
+-}
 
 mbind : ∀ {G G₁ G₂ Φ t t'} → SSplit G G₁ G₂ → Command G₁ t → Cont G₂ Φ t t' → Command G t'
 mbind ssp (Return v) (ident x x₁)
