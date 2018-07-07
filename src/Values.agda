@@ -83,12 +83,15 @@ split-env : ∀ {Φ Φ₁ Φ₂} {G : SCtx}
   → VEnv G Φ
   → ∃ λ { (G₁ , G₂) → SSplit G G₁ G₂ × VEnv G₁ Φ₁ × VEnv G₂ Φ₂ }
 split-env{G = G} [] (vnil ina) =  (G , G) , inactive-ssplit-trivial ina , vnil ina , vnil ina
-split-env (unr unrt sp) (vcons ssp v ϱ) with split-env sp ϱ | unrestricted-val unrt v
-split-env (unr unrt sp) (vcons ssp v ϱ) | (G₁' , G₂') , ssp12 , ϱ₁' , ϱ₂' | unr-v rewrite inactive-left-ssplit ssp unr-v with ssplit-compose4 ssp ssp12 | ssplit-compose3 ssp ssp12
+split-env (dupl unrt sp) (vcons ssp v ϱ) with split-env sp ϱ | unrestricted-val unrt v
+split-env (dupl unrt sp) (vcons ssp v ϱ) | (G₁' , G₂') , ssp12 , ϱ₁' , ϱ₂' | unr-v rewrite inactive-left-ssplit ssp unr-v with ssplit-compose4 ssp ssp12 | ssplit-compose3 ssp ssp12
 ... | Gi , ssp-GG1Gi , ssp-GiG1G2' | Gi-1 , ssp-GGiG2' , ssp-GiG1G1' =
   let p₁ = (inactive-left-ssplit ssp-GiG1G1' unr-v) in
   let p₂ = (inactive-left-ssplit ssp-GiG1G2' unr-v) in
   (G₁' , G₂') ,  ssp12 , vcons (rewrite-ssplit p₁ ssp-GiG1G1') v ϱ₁' , vcons (rewrite-ssplit p₂ ssp-GiG1G2') v ϱ₂' 
+split-env (drop px sp) (vcons ssp v ϱ) 
+  rewrite inactive-left-ssplit ssp (unrestricted-val px v)
+  = split-env sp ϱ
 split-env (left sp) (vcons ssp v ϱ) with split-env sp ϱ
 split-env{G = G} (left sp) (vcons ssp v ϱ) | (G₁' , G₂') , ssp12 , ϱ₁' , ϱ₂' with ssplit-compose3 ssp ssp12
 ... | Gi , ssp-GiG2' , ssp-GiG1G1' = (Gi , G₂') , ssp-GiG2' , vcons ssp-GiG1G1' v ϱ₁' , ϱ₂'

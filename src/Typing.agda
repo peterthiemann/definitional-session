@@ -1,7 +1,7 @@
 module Typing where
 
 open import Data.Fin hiding (_≤_)
-open import Data.List
+open import Data.List hiding (drop)
 open import Data.List.All
 open import Data.Maybe hiding (All)
 open import Data.Nat
@@ -299,20 +299,23 @@ TCtx = List Type
 -- context splitting, respecting linearity
 data Split : TCtx → TCtx → TCtx → Set where
   [] : Split [] [] []
-  unr : ∀ {t Φ Φ₁ Φ₂} → Unr t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) (t ∷ Φ₂)
+  dupl : ∀ {t Φ Φ₁ Φ₂} → Unr t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) (t ∷ Φ₂)
+  drop : ∀ {t Φ Φ₁ Φ₂} → Unr t → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ Φ₂
   left : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) (t ∷ Φ₁) Φ₂
   rght : ∀ {t Φ Φ₁ Φ₂} → Split Φ Φ₁ Φ₂ → Split (t ∷ Φ) Φ₁ (t ∷ Φ₂)
 
 -- split is symmetric
 split-sym : ∀ {φ φ₁ φ₂} → Split φ φ₁ φ₂ → Split φ φ₂ φ₁
 split-sym [] = []
-split-sym (unr x sp) = unr x (split-sym sp)
+split-sym (dupl x sp) = dupl x (split-sym sp)
+split-sym (drop un-t sp) = drop un-t (split-sym sp)
 split-sym (left sp) = rght (split-sym sp)
 split-sym (rght sp) = left (split-sym sp)
 
 split-unr : ∀ {φ φ₁ φ₂} → (sp : Split φ φ₁ φ₂) → All Unr φ₁ → All Unr φ₂ → All Unr φ
 split-unr [] [] [] = []
-split-unr (unr x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
+split-unr (dupl x sp) (px ∷ unr1) (px₁ ∷ unr2) = px ∷ split-unr sp unr1 unr2
+split-unr (drop x sp) unr1 unr2 = x ∷ split-unr sp unr1 unr2
 split-unr (left sp) (px ∷ unr1) unr2 = px ∷ split-unr sp unr1 unr2
 split-unr (rght sp) unr1 (px ∷ unr2) = px ∷ split-unr sp unr1 unr2
 
@@ -329,33 +332,63 @@ split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ 
 split-refl-left [] = [] , [] , []
 split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | nothing = φ' , unr-φ' , left sp'
-split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | just y = t ∷ φ' , y ∷ unr-φ' , unr y sp'
+split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | just y = t ∷ φ' , y ∷ unr-φ' , dupl y sp'
 
 split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
 split-all-unr [] = []
-split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
+split-all-unr (px ∷ un-φ) = dupl px (split-all-unr un-φ)
 
 split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
 split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
 split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
 ... | φ' , sp = t ∷ φ' , left sp
 
+split-unr-left : ∀ {φ φ₁ φ₂ φ₃ φ₄}
+  → Split φ φ₁ φ₂ → Split φ₂ φ₃ φ₄ → All Unr φ₁ → Split φ φ₃ φ₄
+split-unr-left [] [] [] = []
+split-unr-left (dupl x sp012) (dupl x₁ sp234) (px ∷ unr1) = dupl px (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (drop x₁ sp234) (px ∷ unr1) = drop px (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (left sp234) (px ∷ unr1) = left (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (rght sp234) (px ∷ unr1) = rght (split-unr-left sp012 sp234 unr1)
+split-unr-left (drop x₁ sp012) [] unr1 = drop x₁ (split-unr-left sp012 [] unr1)
+split-unr-left (drop x₁ sp012) (dupl x₂ sp234) unr1 = drop x₁ (split-unr-left sp012 (dupl x₂ sp234) unr1)
+split-unr-left (drop x₁ sp012) (drop x₂ sp234) unr1 = drop x₁ (split-unr-left sp012 (drop x₂ sp234) unr1)
+split-unr-left (drop x₁ sp012) (left sp234) unr1 = drop x₁ (split-unr-left sp012 (left sp234) unr1)
+split-unr-left (drop x₁ sp012) (rght sp234) unr1 = drop x₁ (split-unr-left sp012 (rght sp234) unr1)
+split-unr-left (left sp012) [] (px ∷ unr1) = drop px (split-unr-left sp012 [] unr1)
+split-unr-left (left sp012) (dupl x sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (dupl x sp234) unr1)
+split-unr-left (left sp012) (drop x sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (drop x sp234) unr1)
+split-unr-left (left sp012) (left sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (left sp234) unr1)
+split-unr-left (left sp012) (rght sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (rght sp234) unr1)
+split-unr-left (rght sp012) (dupl x₁ sp234) unr1 = dupl x₁ (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (drop x₁ sp234) unr1 = drop x₁ (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (left sp234) unr1 = left (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (rght sp234) unr1 = rght (split-unr-left sp012 sp234 unr1)
+
 -- reorganize splits
 split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
-  → Split φ φ₁ φ₂ → Split φ₁ φ₁₁ φ₁₂ → Σ TCtx λ φ' → Split φ φ₁₁ φ' × Split φ' φ₁₂ φ₂
+  → Split φ φ₁ φ₂ → Split φ₁ φ₁₁ φ₁₂ → ∃ λ φ' → Split φ φ₁₁ φ' × Split φ' φ₁₂ φ₂
 split-rotate [] [] = [] , [] , []
-split-rotate (unr x sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , unr x₁ φ'-sp
-split-rotate (unr x sp12) (left sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x sp-φ' , rght φ'-sp
-split-rotate (unr x sp12) (rght sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , unr x φ'-sp
-split-rotate (left sp12) (unr x₁ sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , unr x₁ sp-φ' , left φ'-sp
+split-rotate (drop x sp12) [] with split-rotate sp12 []
+... | φ' , sp-φ' , φ'-sp =  _ ∷ φ' , rght sp-φ' , drop x φ'-sp
+split-rotate (dupl x sp12) (dupl x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , dupl x₁ sp-φ' , dupl x₁ φ'-sp
+split-rotate (dupl x sp12) (drop x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
+split-rotate (dupl x sp12) (left sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , dupl x sp-φ' , rght φ'-sp
+split-rotate (dupl x sp12) (rght sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , dupl x φ'-sp
+split-rotate (drop px sp12) sp1112 with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , drop px φ'-sp
+split-rotate (left sp12) (dupl x₁ sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , dupl x₁ sp-φ' , left φ'-sp
 split-rotate (left sp12) (left sp1112) with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = φ' , left sp-φ' , φ'-sp
 split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , left φ'-sp
+split-rotate (left sp12) (drop px sp1112) with split-rotate sp12 sp1112
+... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , drop px φ'-sp
 split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
 
@@ -365,6 +398,20 @@ split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 data _∈_ (x : Type) : List Type → Set where
   here  : ∀ { xs } → All Unr xs → x ∈ (x ∷ xs)
   there : ∀ { x₀ xs } → Unr x₀ → x ∈ xs → x ∈ (x₀ ∷ xs)
+
+-- unrestricted weakening
+unr-weaken-var : ∀ {Φ Φ₁ Φ₂ t} → Split Φ Φ₁ Φ₂ → All Unr Φ₂ → t ∈ Φ₁ → t ∈ Φ
+unr-weaken-var [] un-Φ₂ ()
+unr-weaken-var (dupl x₁ sp) (_ ∷ un-Φ₂) (here x) = here (split-unr sp x un-Φ₂)
+unr-weaken-var (dupl x₁ sp) un-Φ₂ (there x x₂) = unr-weaken-var (rght sp) un-Φ₂ x₂
+unr-weaken-var (drop un-t sp) un-Φ₂ x = there un-t (unr-weaken-var sp un-Φ₂ x)
+unr-weaken-var {t = _} (left sp) un-Φ₂ (here x) = here (split-unr sp x un-Φ₂)
+unr-weaken-var {t = t} (left sp) un-Φ₂ (there x x₁) = there x (unr-weaken-var sp un-Φ₂ x₁)
+unr-weaken-var {t = t} (rght sp) (unr-t ∷ un-Φ₂) (here x) = there unr-t (unr-weaken-var sp un-Φ₂ (here x))
+unr-weaken-var {t = t} (rght sp) (unr-t ∷ un-Φ₂) (there x x₁) = there unr-t (unr-weaken-var sp un-Φ₂ (there x x₁))
+
+
+
 
 -- left and right branching
 data Selector : Set where

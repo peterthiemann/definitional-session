@@ -115,15 +115,6 @@ data Expr Φ : Type → Set where
       → (t≤t' : SubT t₁ t₂)
       → Expr Φ t₂
 
-unr-weaken-var : ∀ {Φ Φ₁ Φ₂ t} → Split Φ Φ₁ Φ₂ → All Unr Φ₂ → t ∈ Φ₁ → t ∈ Φ
-unr-weaken-var [] un-Φ₂ ()
-unr-weaken-var (unr x₁ sp) (_ ∷ un-Φ₂) (here x) = here (split-unr sp x un-Φ₂)
-unr-weaken-var (unr x₁ sp) un-Φ₂ (there x x₂) = unr-weaken-var (rght sp) un-Φ₂ x₂
-unr-weaken-var {t = _} (left sp) un-Φ₂ (here x) = here (split-unr sp x un-Φ₂)
-unr-weaken-var {t = t} (left sp) un-Φ₂ (there x x₁) = there x (unr-weaken-var sp un-Φ₂ x₁)
-unr-weaken-var {t = t} (rght sp) (unr-t ∷ un-Φ₂) (here x) = there unr-t (unr-weaken-var sp un-Φ₂ (here x))
-unr-weaken-var {t = t} (rght sp) (unr-t ∷ un-Φ₂) (there x x₁) = there unr-t (unr-weaken-var sp un-Φ₂ (there x x₁))
-
 unr-weaken : ∀ {Φ Φ₁ Φ₂ t} → Split Φ Φ₁ Φ₂ → All Unr Φ₂ → Expr Φ₁ t → Expr Φ t
 unr-weaken sp un-Φ₂ (var x) = var (unr-weaken-var sp un-Φ₂ x)
 unr-weaken sp un-Φ₂ (nat unr-Φ i) = letbind sp (nat unr-Φ i) (var (here un-Φ₂))
