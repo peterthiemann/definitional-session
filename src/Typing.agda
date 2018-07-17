@@ -292,8 +292,6 @@ classify-type (TChan x) = nothing
 classify-type (TFun LL t₁ t₂) = nothing
 classify-type (TFun UU t₁ t₂) = just UFun
 
-
-
 TCtx = List Type
 
 -- context splitting, respecting linearity
@@ -325,7 +323,7 @@ split-all-right [] = []
 split-all-right (x ∷ φ) = rght (split-all-right φ)
 
 -- split the unrestricted part from a typing context
-split-refl-left : (φ : TCtx) → Σ TCtx λ φ' → All Unr φ' × Split φ φ φ'
+split-refl-left : (φ : TCtx) → ∃ λ φ' → All Unr φ' × Split φ φ φ'
 split-refl-left [] = [] , [] , []
 split-refl-left (t ∷ φ) with split-refl-left φ | classify-type t
 split-refl-left (t ∷ φ) | φ' , unr-φ' , sp' | nothing = φ' , unr-φ' , left sp'
@@ -335,10 +333,54 @@ split-all-unr : ∀ {φ} → All Unr φ → Split φ φ φ
 split-all-unr [] = []
 split-all-unr (px ∷ un-φ) = unr px (split-all-unr un-φ)
 
-split-from-disjoint : (φ₁ φ₂ : TCtx) → Σ TCtx λ φ → Split φ φ₁ φ₂
+split-from-disjoint : (φ₁ φ₂ : TCtx) → ∃ λ φ → Split φ φ₁ φ₂
 split-from-disjoint [] φ₂ = φ₂ , split-all-right φ₂
 split-from-disjoint (t ∷ φ₁) φ₂ with split-from-disjoint φ₁ φ₂
 ... | φ' , sp = t ∷ φ' , left sp
+
+split-unr-right : ∀ {φ φ₁ φ₂ φ₃ φ₄}
+  → Split φ φ₁ φ₂ → Split φ₁ φ₃ φ₄ → All Unr φ₂ → Split φ φ₃ φ₄
+split-unr-right [] [] unr1 = []
+split-unr-right (dupl x sp012) (dupl x₁ sp134) (px ∷ unr1) = dupl x₁ (split-unr-right sp012 sp134 unr1)
+split-unr-right (dupl x sp012) (drop x₁ sp134) (px ∷ unr1) = drop px (split-unr-right sp012 sp134 unr1)
+split-unr-right (dupl x sp012) (left sp134) (px ∷ unr1) = left (split-unr-right sp012 sp134 unr1)
+split-unr-right (dupl x sp012) (rght sp134) (px ∷ unr1) = rght (split-unr-right sp012 sp134 unr1)
+split-unr-right (drop x sp012) [] unr1 = drop x (split-unr-right sp012 [] unr1)
+split-unr-right (drop x sp012) (dupl x₁ sp134) unr1 = drop x (split-unr-right sp012 (dupl x₁ sp134) unr1)
+split-unr-right (drop x sp012) (drop x₁ sp134) unr1 = drop x (split-unr-right sp012 (drop x₁ sp134) unr1)
+split-unr-right (drop x sp012) (left sp134) unr1 = drop x (split-unr-right sp012 (left sp134) unr1)
+split-unr-right (drop x sp012) (rght sp134) unr1 = drop x (split-unr-right sp012 (rght sp134) unr1)
+split-unr-right (left sp012) (dupl x sp134) unr1 = dupl x (split-unr-right sp012 sp134 unr1)
+split-unr-right (left sp012) (drop x sp134) unr1 = drop x (split-unr-right sp012 sp134 unr1)
+split-unr-right (left sp012) (left sp134) unr1 = left (split-unr-right sp012 sp134 unr1)
+split-unr-right (left sp012) (rght sp134) unr1 = rght (split-unr-right sp012 sp134 unr1)
+split-unr-right (rght sp012) [] (px ∷ unr1) = drop px (split-unr-right sp012 [] unr1)
+split-unr-right (rght sp012) (dupl x sp134) (px ∷ unr1) = drop px (split-unr-right sp012 (dupl x sp134) unr1)
+split-unr-right (rght sp012) (drop x sp134) (px ∷ unr1) = drop px (split-unr-right sp012 (drop x sp134) unr1)
+split-unr-right (rght sp012) (left sp134) (px ∷ unr1) = drop px (split-unr-right sp012 (left sp134) unr1)
+split-unr-right (rght sp012) (rght sp134) (px ∷ unr1) = drop px (split-unr-right sp012 (rght sp134) unr1)
+
+split-unr-left : ∀ {φ φ₁ φ₂ φ₃ φ₄}
+  → Split φ φ₁ φ₂ → Split φ₂ φ₃ φ₄ → All Unr φ₁ → Split φ φ₃ φ₄
+split-unr-left [] [] [] = []
+split-unr-left (dupl x sp012) (dupl x₁ sp234) (px ∷ unr1) = dupl px (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (drop x₁ sp234) (px ∷ unr1) = drop px (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (left sp234) (px ∷ unr1) = left (split-unr-left sp012 sp234 unr1)
+split-unr-left (dupl x sp012) (rght sp234) (px ∷ unr1) = rght (split-unr-left sp012 sp234 unr1)
+split-unr-left (drop x₁ sp012) [] unr1 = drop x₁ (split-unr-left sp012 [] unr1)
+split-unr-left (drop x₁ sp012) (dupl x₂ sp234) unr1 = drop x₁ (split-unr-left sp012 (dupl x₂ sp234) unr1)
+split-unr-left (drop x₁ sp012) (drop x₂ sp234) unr1 = drop x₁ (split-unr-left sp012 (drop x₂ sp234) unr1)
+split-unr-left (drop x₁ sp012) (left sp234) unr1 = drop x₁ (split-unr-left sp012 (left sp234) unr1)
+split-unr-left (drop x₁ sp012) (rght sp234) unr1 = drop x₁ (split-unr-left sp012 (rght sp234) unr1)
+split-unr-left (left sp012) [] (px ∷ unr1) = drop px (split-unr-left sp012 [] unr1)
+split-unr-left (left sp012) (dupl x sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (dupl x sp234) unr1)
+split-unr-left (left sp012) (drop x sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (drop x sp234) unr1)
+split-unr-left (left sp012) (left sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (left sp234) unr1)
+split-unr-left (left sp012) (rght sp234) (px ∷ unr1) = drop px (split-unr-left sp012 (rght sp234) unr1)
+split-unr-left (rght sp012) (dupl x₁ sp234) unr1 = dupl x₁ (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (drop x₁ sp234) unr1 = drop x₁ (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (left sp234) unr1 = left (split-unr-left sp012 sp234 unr1)
+split-unr-left (rght sp012) (rght sp234) unr1 = rght (split-unr-left sp012 sp234 unr1)
 
 -- reorganize splits
 split-rotate : ∀ {φ φ₁ φ₂ φ₁₁ φ₁₂}
