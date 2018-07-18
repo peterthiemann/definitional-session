@@ -52,11 +52,6 @@ module General where
     par sp (exp (letbind (split-all-right _) (unit []) e))
            (exp (letbind (split-all-right _) (unit []) f))
 
-{-  
-  postulate -- a heterogeneous equality
-    lift-empty : ∀ {Φ} → (ϱ : VEnv [] Φ) → ϱ ≡ lift-venv ϱ
--}
-
   lift-unrestricted : 
     ∀ {t G} (unrt : Unr t) (v : Val G t) 
     → unrestricted-val unrt (lift-val v) ≡ ::-inactive (unrestricted-val unrt v)
@@ -146,9 +141,71 @@ module General where
   ... | ssc4
     = refl
 
+  split-env-right-lemma0 :
+    ∀ {Φ} (ϱ : VEnv [] Φ) → 
+    split-env (split-all-right Φ) ϱ
+    ≡
+    (([] , []) , ss-[] , vnil []-inactive , ϱ)
+  split-env-right-lemma0 (vnil []-inactive) = refl
+  split-env-right-lemma0 (vcons ss-[] v ϱ)
+    rewrite split-env-right-lemma0 ϱ
+    = refl
+
+
+  split-env-lemma-2T : Set
+  split-env-lemma-2T =
+    ∀ { Φ Φ₁ Φ₂ }
+    (sp : Split Φ Φ₁ Φ₂)
+    (ϱ : VEnv [] Φ)
+    → ∃ λ ϱ₁ → ∃ λ ϱ₂ →
+               split-env sp (lift-venv ϱ) ≡
+               (_ , (ss-both ss-[]) , lift-venv ϱ₁ , lift-venv ϱ₂)
+               ×
+               split-env sp ϱ ≡
+               (_ , ss-[] , ϱ₁ , ϱ₂)
+
+  split-env-lemma-2 : split-env-lemma-2T
+  split-env-lemma-2 [] (vnil []-inactive)
+    = (vnil []-inactive) , ((vnil []-inactive) , (refl , refl))
+  split-env-lemma-2 (dupl unrt sp) (vcons ss-[] v ϱ)
+    with split-env-lemma-2 sp ϱ
+  ... | ϱ₁ , ϱ₂ , selift-ind , se-ind
+    rewrite se-ind | lift-unrestricted unrt v
+    with unrestricted-val unrt v
+  ... | []-inactive
+    rewrite selift-ind
+    with ssplit-compose3 (ss-both ss-[]) (ss-both ss-[])
+  ... | ssc3
+    = (vcons ss-[] v ϱ₁) , (vcons ss-[] v ϱ₂) , refl , refl
+  split-env-lemma-2 (Split.drop unrt sp) (vcons ss-[] v ϱ) 
+    with split-env-lemma-2 sp ϱ
+  ... | ϱ₁ , ϱ₂ , selift-ind , se-ind
+    rewrite se-ind | lift-unrestricted unrt v
+    with unrestricted-val unrt v
+  ... | []-inactive
+    = ϱ₁ , ϱ₂ , selift-ind , se-ind
+  split-env-lemma-2 (left sp) (vcons ss-[] v ϱ)
+    with split-env-lemma-2 sp ϱ
+  ... | ϱ₁ , ϱ₂ , selift-ind , se-ind
+    rewrite se-ind | selift-ind
+    with ssplit-compose3 (ss-both ss-[]) (ss-both ss-[])
+  ... | ssc3
+    = (vcons ss-[] v ϱ₁) , ϱ₂ , refl , refl
+  split-env-lemma-2 (rght sp) (vcons ss-[] v ϱ)
+    with split-env-lemma-2 sp ϱ
+  ... | ϱ₁ , ϱ₂ , selift-ind , se-ind
+    rewrite se-ind | selift-ind
+    with ssplit-compose4 (ss-both ss-[]) (ss-both ss-[])
+  ... | ssc4
+    = ϱ₁ , (vcons ss-[] v ϱ₂) , refl , refl
+
+
   -- obviously true, but requires a nasty inductive proof
   postulate
-    weaken2-ident : ∀ {G Φ} → (ϱ : VEnv G Φ) → weaken2-venv [] [] ϱ ≡ ϱ
+    weaken2-ident : ∀ {G Φ} (ϱ : VEnv G Φ) → weaken2-venv [] [] ϱ ≡ ϱ
+
+  postulate
+    weaken1-ident : ∀ {G Φ} (ϱ : VEnv G Φ) → weaken1-venv [] ϱ ≡ ϱ
 
   split-rotate-lemma : ∀ {Φ} →
     split-rotate (split-all-left Φ) (split-all-right Φ)
@@ -159,6 +216,10 @@ module General where
   split-rotate-lemma {x ∷ Φ}
     rewrite split-rotate-lemma {Φ}
     = refl
+
+  ssplit-compose-lemma : ∀ ss → 
+    ssplit-compose ss-[] ss ≡ ([] , ss-[] , ss-[])
+  ssplit-compose-lemma ss-[] = refl
 
   reductionT : Set
   reductionT = 
@@ -178,15 +239,13 @@ module General where
   reduction{Φ}{Φ₁}{Φ₂} sp ϱ p e f
     with ssplit-refl-left-inactive []
   ... | G' , ina-G' , ss-GG'
-    with split-env sp ϱ
-  ... | _ , ss-[] , ϱ₁' , ϱ₂'
-    with split-env-lemma sp ϱ
-  ... | ϱ₁ , ϱ₂ , spe==
-    rewrite spe==
+    with split-env-lemma-2 sp ϱ
+  ... | ϱ₁ , ϱ₂ , spe== , sp==
+    rewrite spe== | sp==
     with ssplit-compose{just (send! , POSNEG) ∷ []} (ss-posneg ss-[]) (ss-left ss-[])
   ... | ssc
     rewrite split-env-right-lemma ϱ₁
-    with ssplit-compose{just _ ∷ []} (ss-left ss-[]) (ss-left ss-[])
+    with ssplit-compose{just (send! , POSNEG) ∷ []} (ss-left ss-[]) (ss-left ss-[])
   ... | ssc-ll
     rewrite split-env-right-lemma ϱ₂
     with ssplit-compose2 (ss-both ss-[]) (ss-both ss-[])
@@ -194,9 +253,12 @@ module General where
     rewrite weaken2-ident (lift-venv ϱ₁) 
           | split-rotate-lemma {Φ₁}
           | split-rotate-lemma {Φ₂}
-          | split-env-right-lemma ϱ₁'
---          |  split-env-right-lemma ϱ₂'
-    = {!!}
+          | split-env-right-lemma0 ϱ₁
+          | split-env-right-lemma0 ϱ₂
+          | weaken2-ident ϱ₁
+          | weaken1-ident (lift-venv ϱ₂)
+          | weaken1-ident ϱ₂
+    = refl
 
 module ClosedWithContext where
   mklhs : Expr (TUnit ∷ []) TUnit
