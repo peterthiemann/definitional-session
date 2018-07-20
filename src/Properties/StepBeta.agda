@@ -4,6 +4,7 @@ module Properties.StepBeta where
 
 open import Data.List
 open import Data.List.All
+open import Data.Product
 
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
@@ -21,15 +22,15 @@ open import ProcessRun
 
 open import Properties.Base
 
-mklhs : ∀ {tin tout} (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ []) TUnit) → Expr (tin ∷ []) TUnit
-mklhs e E = 
-  letbind (rght []) (ulambda [] [] [] e) 
-  (letbind (left (left [])) (app (left (rght [])) (here []) (here []))
+mklhs : ∀ {Φ tin tout} (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ Φ) TUnit) → Expr (tin ∷ Φ) TUnit
+mklhs {Φ} e E = 
+  letbind (rght (split-all-right Φ)) (ulambda [] [] [] e) 
+  (letbind (left (left (split-all-right Φ))) (app (left (rght [])) (here []) (here []))
   E)
 
-mkrhs : ∀ {tin tout} (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ []) TUnit) → Expr (tin ∷ []) TUnit
-mkrhs e E =
-  letbind (left []) e E
+mkrhs : ∀ {Φ tin tout} (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ Φ) TUnit) → Expr (tin ∷ Φ) TUnit
+mkrhs {Φ} e E =
+  letbind (left (split-all-right Φ)) e E
 
 reductionT : Set
 reductionT = ∀ {tin tout}
@@ -44,4 +45,24 @@ reduction : reductionT
 reduction e E v
   with split-env (rght []) (vcons ss-[] v (vnil []-inactive))
 ... | sperght
+  = refl
+
+-- open reduction
+
+reduction-open-type : Set
+reduction-open-type = ∀ {Φ tin tout}
+  (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ Φ) TUnit)
+  (ϱ : VEnv [] (tin ∷ Φ))
+  → let lhs = run (left (split-all-left Φ)) ss-[] (mklhs e E) ϱ (halt []-inactive UUnit) in
+    let rhs = run (left (split-all-left Φ)) ss-[] (mkrhs e E) ϱ (halt []-inactive UUnit) in
+    restart (restart lhs) ≡ rhs
+
+reduction-open : reduction-open-type
+reduction-open {Φ} e E (vcons ss-[] v ϱ)
+  rewrite split-rotate-lemma {Φ}
+  | split-env-right-lemma0 ϱ
+  with ssplit-compose3 ss-[] ss-[]
+... | ssc3
+  rewrite split-env-right-lemma0 ϱ
+  | split-rotate-lemma {Φ}
   = refl
