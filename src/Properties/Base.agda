@@ -127,6 +127,16 @@ split-env-right-lemma0 (vcons ss-[] v ϱ)
   rewrite split-env-right-lemma0 ϱ
   = refl
 
+split-env-left-lemma0 :
+  ∀ {Φ} (ϱ : VEnv [] Φ) → 
+  split-env (split-all-left Φ) ϱ
+  ≡
+  (([] , []) , ss-[] , ϱ , vnil []-inactive)
+split-env-left-lemma0 (vnil []-inactive) = refl
+split-env-left-lemma0 (vcons ss-[] v ϱ)
+  rewrite split-env-left-lemma0 ϱ
+  = refl
+
 
 split-env-lemma-2T : Set
 split-env-lemma-2T =
@@ -184,6 +194,27 @@ split-rotate-lemma {[]} = refl
 split-rotate-lemma {x ∷ Φ}
   rewrite split-rotate-lemma {Φ}
   = refl
+
+split-rotate-lemma' :  ∀ {Φ Φ₁ Φ₂}
+  (sp : Split Φ Φ₁ Φ₂) →
+  split-rotate (split-all-left Φ) sp
+  ≡
+  (Φ₂ , sp , split-all-left Φ₂)
+
+split-rotate-lemma' {[]} [] = refl
+split-rotate-lemma' {x ∷ Φ} (dupl un-x sp)
+  rewrite split-rotate-lemma' {Φ} sp
+  = refl
+split-rotate-lemma' {x ∷ Φ} {Φ₁} {Φ₂} (Split.drop un-x sp)
+  rewrite split-rotate-lemma' {Φ} sp
+  = refl
+split-rotate-lemma' {x ∷ Φ} (left sp)
+  rewrite split-rotate-lemma' {Φ} sp
+  = refl
+split-rotate-lemma' {x ∷ Φ} (rght sp)
+  rewrite split-rotate-lemma' {Φ} sp
+  = refl
+
 
 ssplit-compose-lemma : ∀ ss → 
   ssplit-compose ss-[] ss ≡ ([] , ss-[] , ss-[])
