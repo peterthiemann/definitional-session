@@ -409,7 +409,7 @@ split-rotate (left sp12) (left sp1112) with split-rotate sp12 sp1112
 split-rotate (left sp12) (rght sp1112) with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , left φ'-sp
 split-rotate (left sp12) (drop px sp1112) with split-rotate sp12 sp1112
-... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , drop px φ'-sp
+... | φ' , sp-φ' , φ'-sp = φ' , drop px sp-φ' , φ'-sp
 split-rotate (rght sp12) sp1112 with split-rotate sp12 sp1112
 ... | φ' , sp-φ' , φ'-sp = _ ∷ φ' , rght sp-φ' , rght φ'-sp
 
