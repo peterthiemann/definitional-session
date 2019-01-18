@@ -82,7 +82,7 @@ vcr-match-2-sr (ssplit2 (ss-posneg ss1) ()) (here-pos ina-G x) (here-pos ina-G�
 vcr-match-2-sr (ssplit2 (ss-negpos ss1) ()) (here-pos ina-G x) (here-pos ina-G₁ x₁)
 vcr-match-2-sr (ssplit2 ss-[] ()) (here-pos ina-G x) (here-neg ina-G₁ x₁)
 vcr-match-2-sr (ssplit2 (ss-both ss1) ()) (here-pos ina-G x) (here-neg ina-G₁ x₁)
-vcr-match-2-sr (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G (sub-recv{s1} t t' t<=t' s1<=s1')) (here-neg ina-G₁ (sub-send .t t'' t'<=t s1<=s1'')) = just ((subt-trans t'<=t t<=t') , (sub-trans (dual-sub s1<=s1'') (sub-trans (eq-implies-sub (eq-sym (dual-involution s1))) s1<=s1')) , , , , , ssplit2 (ss-left ss1) (ss-posneg ss2) , here-pos ina-G (Sub.force s1<=s1') , here-neg ina-G₁ (Sub.force s1<=s1''))
+vcr-match-2-sr (ssplit2 (ss-left ss1) (ss-posneg ss2)) (here-pos ina-G (sub-recv{s1} t t' t<=t' s1<=s1')) (here-neg ina-G₁ (sub-send .t t'' t'<=t s1<=s1'')) = just ((subt-trans t'<=t t<=t') , (sub-trans (dual-sub s1<=s1'') (sub-trans (eq-implies-sub (eq-sym (dual-involution s1))) s1<=s1')) , _ , _ , _ , _ , ssplit2 (ss-left ss1) (ss-posneg ss2) , here-pos ina-G (Sub.force s1<=s1') , here-neg ina-G₁ (Sub.force s1<=s1''))
 vcr-match-2-sr (ssplit2 (ss-right ss1) ()) (here-pos ina-G x) (here-neg ina-G₁ x₁)
 vcr-match-2-sr (ssplit2 (ss-posneg ss1) ()) (here-pos ina-G x) (here-neg ina-G₁ x₁)
 vcr-match-2-sr (ssplit2 (ss-negpos ss1) ()) (here-pos ina-G x) (here-neg ina-G₁ x₁)

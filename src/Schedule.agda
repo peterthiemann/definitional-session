@@ -178,7 +178,7 @@ single-step (G , tp)
   with ssplit-refl-left-inactive G
 ... | G' , ina-G' , ss-GG'
   with step ss-GG' tp (tnil ina-G')
-... | ev , tp' = ev , ( , tp')
+... | ev , tp' = ev , ( _ , tp')
 
 -- stuff to run ...
 data Gas : Set where
@@ -195,7 +195,7 @@ data Outcome : Set where
 schedule : {G : SCtx} → Gas → ThreadPool G → Outcome
 schedule Empty tp = OutOfGas tp
 schedule{G} (More gas) tp
-  with single-step (, tp)
+  with single-step (_ , tp)
 ... | Terminated , _ , tp' = Terminated
 ... | ev , _ , tp' = ev , (schedule gas tp')
 

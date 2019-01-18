@@ -121,17 +121,17 @@ split-append : ∀ {G G1 G2} G'
   → SSplit (G' ++ G) G1 G2
   → ∃ λ G₁' → ∃ λ G₂' → ∃ λ G₁ → ∃ λ G₂
   → SSplit G' G₁' G₂' × SSplit G G₁ G₂ × G1 ≡ G₁' ++ G₁ × G2 ≡ G₂' ++ G₂
-split-append [] ss = , , , , ss-[] , ss , refl , refl
+split-append [] ss = _ , _ , _ , _ , ss-[] , ss , refl , refl
 split-append (.nothing ∷ G') (ss-both ss) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = , , , , (ss-both ss') , ss0 , refl , refl
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = _ , _ , _ , _ , (ss-both ss') , ss0 , refl , refl
 split-append (.(just _) ∷ G') (ss-left ss) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = , , , , (ss-left ss') , ss0 , refl , refl
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = _ , _ , _ , _ , (ss-left ss') , ss0 , refl , refl
 split-append (.(just _) ∷ G') (ss-right ss) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = , , , , (ss-right ss') , ss0 , refl , refl
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = _ , _ , _ , _ , (ss-right ss') , ss0 , refl , refl
 split-append (.(just (_ , POSNEG)) ∷ G') (ss-posneg ss) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = , , , , (ss-posneg ss') , ss0 , refl , refl
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = _ , _ , _ , _ , (ss-posneg ss') , ss0 , refl , refl
 split-append (.(just (_ , POSNEG)) ∷ G') (ss-negpos ss) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = , , , , (ss-negpos ss') , ss0 , refl , refl
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = _ , _ , _ , _ , (ss-negpos ss') , ss0 , refl , refl
 
 -- weakening #2
 

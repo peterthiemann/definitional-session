@@ -57,19 +57,19 @@ ssplit-compose (ss-left ss) (ss-left ss₁) with ssplit-compose ss ss₁
 ssplit-compose (ss-left ss) (ss-right ss₁) with ssplit-compose ss ss₁
 ... | Gi , ss₁₃ , ss₂₄ = just _ ∷ Gi , ss-right ss₁₃ , ss-left ss₂₄
 ssplit-compose (ss-left ss) (ss-posneg ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ =  just ( , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-left ss₂₄
+... | Gi , ss₁₃ , ss₂₄ =  just ( _ , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-left ss₂₄
 ssplit-compose (ss-left ss) (ss-negpos ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just ( , POS) ∷ Gi , ss-negpos ss₁₃ , ss-left ss₂₄
+... | Gi , ss₁₃ , ss₂₄ = just ( _ , POS) ∷ Gi , ss-negpos ss₁₃ , ss-left ss₂₄
 ssplit-compose (ss-right ss) (ss-both ss₁) with ssplit-compose ss ss₁
 ... | Gi , ss₁₃ , ss₂₄ = just _ ∷ Gi , ss-right ss₁₃ , ss-right ss₂₄
 ssplit-compose (ss-posneg ss) (ss-left ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just ( , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-right ss₂₄
+... | Gi , ss₁₃ , ss₂₄ = just ( _ , NEG) ∷ Gi , ss-posneg ss₁₃ , ss-right ss₂₄
 ssplit-compose (ss-posneg ss) (ss-right ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just ( , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-posneg ss₂₄
+... | Gi , ss₁₃ , ss₂₄ = just ( _ , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-posneg ss₂₄
 ssplit-compose (ss-negpos ss) (ss-left ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just ( , POS) ∷ Gi , ss-negpos ss₁₃ , ss-right ss₂₄
+... | Gi , ss₁₃ , ss₂₄ = just ( _ , POS) ∷ Gi , ss-negpos ss₁₃ , ss-right ss₂₄
 ssplit-compose (ss-negpos ss) (ss-right ss₁) with ssplit-compose ss ss₁
-... | Gi , ss₁₃ , ss₂₄ = just ( , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-negpos ss₂₄
+... | Gi , ss₁₃ , ss₂₄ = just ( _ , POSNEG) ∷ Gi , ss-right ss₁₃ , ss-negpos ss₂₄
 
 ssplit-compose2 : {G G₁ G₂ G₂₁ G₂₂ : SCtx}
   → SSplit G G₁ G₂
@@ -111,17 +111,17 @@ ssplit-compose3 (ss-right ss12) (ss-left ss234) with ssplit-compose3 ss12 ss234
 ssplit-compose3 (ss-right ss12) (ss-right ss234) with ssplit-compose3 ss12 ss234
 ... | Gi , ssi4 , ssi13 = nothing ∷ Gi , ss-right ssi4 , ss-both ssi13
 ssplit-compose3 (ss-right ss12) (ss-posneg ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , POS) ∷ Gi , ss-posneg ssi4 , ss-right ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , POS) ∷ Gi , ss-posneg ssi4 , ss-right ssi13
 ssplit-compose3 (ss-right ss12) (ss-negpos ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , NEG) ∷ Gi , ss-negpos ssi4 , ss-right ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , NEG) ∷ Gi , ss-negpos ssi4 , ss-right ssi13
 ssplit-compose3 (ss-posneg ss12) (ss-left ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , POSNEG) ∷ Gi , ss-left ssi4 , ss-posneg ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , POSNEG) ∷ Gi , ss-left ssi4 , ss-posneg ssi13
 ssplit-compose3 (ss-posneg ss12) (ss-right ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , POS) ∷ Gi , ss-posneg ssi4 , ss-left ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , POS) ∷ Gi , ss-posneg ssi4 , ss-left ssi13
 ssplit-compose3 (ss-negpos ss12) (ss-left ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , POSNEG) ∷ Gi , ss-left ssi4 , ss-negpos ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , POSNEG) ∷ Gi , ss-left ssi4 , ss-negpos ssi13
 ssplit-compose3 (ss-negpos ss12) (ss-right ss234) with ssplit-compose3 ss12 ss234
-... | Gi , ssi4 , ssi13 = just ( , NEG) ∷ Gi , ss-negpos ssi4 , ss-left ssi13
+... | Gi , ssi4 , ssi13 = just ( _ , NEG) ∷ Gi , ss-negpos ssi4 , ss-left ssi13
 
 
 ssplit-compose4

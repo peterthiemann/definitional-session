@@ -20,7 +20,7 @@ one-step{G} (G1 , tp)
   with ssplit-refl-left-inactive (G1 ++ G)
 ... | G' , ina-G' , ss-GG'
   with Alternative.step ss-GG' tp (tnil ina-G')
-... | ev , tp' = ev , ( , tp')
+... | ev , tp' = ev , ( _ , tp')
 
 restart : ∀ {G} → Command G → Command G
 restart (Stopped ss v κ) = apply-cont ss κ v

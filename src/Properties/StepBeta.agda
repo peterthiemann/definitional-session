@@ -1,5 +1,3 @@
--- V: (λx.e)v = e[v/x]
--- let f = λx.e in let r = f v in E --> [let x = v in] let r = e in E
 module Properties.StepBeta where
 
 open import Data.List
@@ -21,6 +19,9 @@ open import ProcessSyntax
 open import ProcessRun
 
 open import Properties.Base
+
+-- V: (λx.e)v = e[v/x]
+-- let f = λx.e in let r = f v in E --> [let x = v in] let r = e in E
 
 mklhs : ∀ {Φ tin tout} (e : Expr (tin ∷ []) tout) (E : Expr (tout ∷ Φ) TUnit) → Expr (tin ∷ Φ) TUnit
 mklhs {Φ} e E = 
