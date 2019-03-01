@@ -24,9 +24,10 @@ open import Session
 -- outcomes of step
 data Event : Set where
   Terminated Forked Restarted Halted New Closed NotClosed WaitSkipped : Event
-  SendSkipped Received NotReceived Selected NotSelected : Event
-  NSelected NotNSelected BranchSkipped NBranchSkipped : Event
+  SendSkipped Received NotReceived : Event
   Stuck : Event
+  Selected NotSelected : Event
+  NSelected NotNSelected BranchSkipped NBranchSkipped : Event
 
 data NextPool : Set where
   _,_ : ∀ {G} → Event → ThreadPool G → NextPool

@@ -1,6 +1,7 @@
-# Typed Definitional Interpreter for a Functional Language with Session Types #
+# Intrisically-Typed Small-Step Semantics for a Functional Language with Session Types #
 
-This repository contains the Agda implementation. It compiles with Agda 2.5.3 and works with the standard library version 0.13.
+This repository contains the Agda implementation. It compiles with
+Agda 2.5.4.2 and works with the standard library version 0.13. 
 The development is structured in several modules and may be read in the following order.
 
   * `Typing.agda` types, session types, equivalence, subtyping, duality, along with some lemmas
