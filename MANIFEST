@@ -8,6 +8,8 @@ src/DSession.agda
 src/ANF.agda
 src/ProcessSyntax.agda
 src/DSyntax.agda
+src/Async.agda
+src/Aexamples.agda
 src/Properties/StepBeta.agda
 src/Properties/StepNew.agda
 src/Properties/StepPair.agda
