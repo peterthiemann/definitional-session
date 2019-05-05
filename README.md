@@ -20,3 +20,6 @@ Furthermore, there are some auxiliary modules.
   * `Run.agda` running a couple of examples (**very** inefficient)
   * `ProcessSyntax.agda` typed syntax for process terms
   * `ProcessRun.agda` definitions to run a process term + many auxiliary lemmas
+  * `Async.agda` definitions for asynchronous session types and
+  operations thereon
+  * `Aexample.agda` examples using asynchronous channels

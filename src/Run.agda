@@ -15,6 +15,7 @@ open import Session
 open import Schedule
 
 open import Examples
+open import Aexamples
 
 gas : ℕ → Gas
 gas zero = Empty
@@ -47,3 +48,13 @@ runex5 = start (gas 3) ex5
 -- magic number is 6
 runex6 : Outcome
 runex6 = start (gas 7) ex6
+
+-- now asynchronous examples
+runaex1 : Outcome
+runaex1 = start (gas 40) aex1
+
+runasyncex1 : Outcome
+runasyncex1 = start (gas 40) asyncex1
+
+runasyncex2 : Outcome
+runasyncex2 = start (gas 80) asyncex2
