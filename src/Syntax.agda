@@ -6,7 +6,7 @@ open import Data.List.All
 open import Data.Nat
 open import Data.Product
 
-open import Typing
+open import Typing hiding (send ; recv)
 
 -- expressions
 data Expr Φ : Type → Set where
@@ -48,12 +48,12 @@ data Expr Φ : Type → Set where
 
   send : ∀ {Φ₁ Φ₂ s t}
       → (sp : Split Φ Φ₁ Φ₂)
-      → (ch : (TChan (send t s)) ∈ Φ₁)
+      → (ch : (TChan (transmit SND t s)) ∈ Φ₁)
       → (vv : t ∈ Φ₂)
       → Expr Φ (TChan (SType.force s))
 
   recv : ∀ {s t}
-      → (ch : (TChan (recv t s)) ∈ Φ)
+      → (ch : (TChan (transmit RCV t s)) ∈ Φ)
       → Expr Φ (TPair (TChan (SType.force s)) t)
 
   close : (ch : TChan send! ∈ Φ)

@@ -14,6 +14,9 @@ open import Relation.Binary.PropositionalEquality
 data LU : Set where
   LL UU : LU
 
+data Dir : Set where
+  SND RCV : Dir
+
 -- coinductive view on session types
 -- following "Interactive Programming in Agda"
 -- http://www.cse.chalmers.se/~abela/ooAgda.pdf
@@ -25,10 +28,10 @@ mutual
     TFun  : LU → Type → Type → Type
   
   data STypeF (S : Set) : Set where
-    send recv : (t : Type) → (s : S) → STypeF S
-    sintern sextern : (s1 : S) (s2 : S) → STypeF S
-    sintN sextN : (m : ℕ) (alt : Fin m → S) → STypeF S
-    send! send? : STypeF S
+    transmit : (d : Dir) (t : Type) (s : S) → STypeF S
+    choice : (d : Dir) (s1 : S) (s2 : S) → STypeF S
+    choiceN : (d : Dir) (m : ℕ) (alt : Fin m → S) → STypeF S
+    end : (d : Dir) → STypeF S
 
   record SType : Set where
     coinductive 
@@ -36,6 +39,18 @@ mutual
     field force : STypeF SType
 
 open SType
+
+pattern send t s = transmit SND t s
+pattern recv t s = transmit RCV t s
+
+pattern sintern s1 s2 = choice SND s1 s2
+pattern sextern s1 s2 = choice RCV s1 s2
+
+pattern sintN m a = choiceN SND m a
+pattern sextN m a = choiceN RCV m a
+
+pattern send! = end SND
+pattern send? = end RCV
 
 -- session type equivalence
 data EquivF (R : SType → SType → Set) : STypeF SType → STypeF SType → Set where
@@ -104,19 +119,19 @@ equivF-trans eq-send! eq-send! = eq-send!
 equivF-trans eq-send? eq-send? = eq-send?
 
 -- dual
+dual-dir : Dir → Dir
+dual-dir SND = RCV
+dual-dir RCV = SND
+
 dual : SType → SType
 dualF : STypeF SType → STypeF SType
 
 force (dual s) = dualF (force s)
 
-dualF (send t s) = recv t (dual s)
-dualF (recv t s) = send t (dual s)
-dualF (sintern s1 s2) = sextern (dual s1) (dual s2)
-dualF (sextern s1 s2) = sintern (dual s1) (dual s2)
-dualF (sintN m alt) = sextN m λ i → dual (alt i)
-dualF (sextN m alt) = sintN m λ i → dual (alt i)
-dualF send! = send?
-dualF send? = send!
+dualF (transmit d t s) = transmit (dual-dir d) t (dual s)
+dualF (choice d s1 s2) = choice (dual-dir d) (dual s1) (dual s2)
+dualF (choiceN d m alt) = choiceN (dual-dir d) m λ i → dual (alt i)
+dualF (end d) = end (dual-dir d)
 
 -- properties
 
@@ -133,7 +148,6 @@ dual-involutionF (sintN m alt) = eq-sintN λ i → dual-involution (alt i)
 dual-involutionF (sextN m alt) = eq-sextN λ i → dual-involution (alt i)
 dual-involutionF send! = eq-send!
 dual-involutionF send? = eq-send?
-
 
 
 mutual

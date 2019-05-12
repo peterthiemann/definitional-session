@@ -4,13 +4,24 @@ open import Data.Fin
 open import Data.List hiding (drop)
 open import Data.List.All
 
-open import Typing
+open import Typing renaming (send to ssend ; recv to srecv)
 open import Syntax
 open import Values
 
 -- an asynchronous channel is a promise for a channel
-AChan : STypeF SType → Type
-AChan s = TChan (recv (TChan s) (delay send!))
+ASession DSession : STypeF SType → STypeF SType
+ASession s = srecv (TChan s) (delay send!)
+DSession s = dualF (ASession s)
+
+AChan DChan : STypeF SType → Type
+AChan s = TChan (ASession s)
+DChan s = TChan (DSession s)
+
+Promise : (s : SType) → Type
+Promise s = TPair (AChan (SType.force s)) (DChan (SType.force s))
+
+new-promise : ∀ {Φ} → All Unr Φ → (s : SType) → Expr Φ (Promise s)
+new-promise unr-Φ s = new unr-Φ (delay (ASession (SType.force s)))
 
 -- create an async channel
 anew : ∀ {Φ}
@@ -20,9 +31,9 @@ anew : ∀ {Φ}
 anew unr-Φ s =
   letbind (split-all-unr unr-Φ) (new unr-Φ s)
   (letpair (left (split-all-unr unr-Φ)) (here unr-Φ)
-  (letbind (rght (rght (split-all-unr unr-Φ))) (new unr-Φ (delay (recv (TChan (SType.force s)) (delay send!))))
+  (letbind (rght (rght (split-all-unr unr-Φ))) (new-promise unr-Φ s)
   (letpair (left (rght (rght (split-all-unr unr-Φ)))) (here unr-Φ)
-  (letbind (rght (rght (rght (rght (split-all-unr unr-Φ))))) (new unr-Φ (delay (recv (TChan (SType.force (dual s))) (delay send!))))
+  (letbind (rght (rght (rght (rght (split-all-unr unr-Φ))))) (new-promise unr-Φ (dual s))
   (letpair (left (rght (rght (rght (rght (split-all-unr unr-Φ)))))) (here unr-Φ)
   (letbind (rght (rght (rght (left (left (rght (split-all-unr unr-Φ)))))))
            (fork (letbind (left (left (split-all-unr unr-Φ))) (send (left (rght (split-all-unr unr-Φ))) (here unr-Φ) (here unr-Φ))
@@ -35,11 +46,11 @@ anew unr-Φ s =
 
 asend : ∀ {Φ Φ₁ Φ₂ s t}
   → (sp : Split Φ Φ₁ Φ₂)
-  → (ch : (AChan (send t s)) ∈ Φ₁)
+  → (ch : (AChan (ssend t s)) ∈ Φ₁)
   → (vt : t ∈ Φ₂)
   → Expr Φ (AChan (SType.force s))
 asend {Φ} {s = s} sp ch vt =
-  letbind (split-all-right Φ) (new [] (delay (recv (TChan (SType.force s)) (delay send!))))
+  letbind (split-all-right Φ) (new-promise [] s)
   (letpair (left (split-all-right Φ)) (here [])
   (letbind (rght (left (split-all-left Φ)))
            -- read actual channel & actual send & send depleted channel & close
@@ -54,10 +65,10 @@ asend {Φ} {s = s} sp ch vt =
 
 -- receive is a blocking operation!
 arecv : ∀ {Φ s t}
-      → (ch : (AChan (recv t s)) ∈ Φ)
+      → (ch : (AChan (srecv t s)) ∈ Φ)
       → Expr Φ (TPair (AChan (SType.force s)) t)
 arecv {s = s} ch =
-  letbind (split-all-right _) (new [] (delay (recv (TChan (SType.force s)) (delay send!))))
+  letbind (split-all-right _) (new-promise [] s)
   (letpair (left (split-all-right _)) (here [])
   (letbind (rght (rght (split-all-left _))) (recv ch) 
   (letpair (left (rght (rght (split-all-right _)))) (here [])
@@ -94,7 +105,7 @@ anselect : ∀ {Φ m alt}
       → Expr Φ (AChan (SType.force (alt lab)))
 anselect {alt = alt} lab ch =
   letbind (split-all-right _)
-          (new [] (delay (recv (TChan (SType.force (alt lab))) (delay send!))))
+          (new-promise [] (alt lab))
   (letpair (left (split-all-right _)) (here [])
   (letbind (rght (left (split-all-left _)))
            (fork (letbind (rght (split-all-left _)) (recv ch)
@@ -116,7 +127,7 @@ anbranch{alt = alt} sp ch ealts =
   (letpair (left (split-all-right _)) (here [])
   (letbind (left (split-all-right _)) (close (here []))
   (nbranch (drop UUnit (left (split-all-right _))) (here [])
-  (λ i → letbind (split-all-right _) (new [] (delay (recv (TChan (SType.force (alt i))) (delay send!))))
+  (λ i → letbind (split-all-right _) (new-promise [] (alt i))
          (letpair (left (split-all-right _)) (here [])
          (letbind (rght (left (left (split-all-right _)))) 
                   (fork (letbind (left (left [])) (send (left (rght [])) (here []) (here []))

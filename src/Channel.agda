@@ -10,7 +10,7 @@ open import Data.Product hiding (map)
 open import Relation.Binary.PropositionalEquality
 
 open import Typing
-open import Syntax
+open import Syntax hiding (send ; recv)
 open import Global
 
 
