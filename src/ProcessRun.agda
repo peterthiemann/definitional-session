@@ -83,7 +83,7 @@ weaken1-cont G' (subsume x κ) = subsume x (weaken1-cont G' κ)
 
 weaken1-command : ∀ {G} G' → Command G → Command (inactive-clone G' ++ G)
 weaken1-command G' (Fork ss κ₁ κ₂) = Fork (splitting-extension G' ss) (weaken1-cont G' κ₁) (weaken1-cont G' κ₂)
-weaken1-command G' (Stopped ss v κ) = Stopped (splitting-extension G' ss) (weaken1-val G' v) (weaken1-cont G' κ)
+weaken1-command G' (Ready ss v κ) = Ready (splitting-extension G' ss) (weaken1-val G' v) (weaken1-cont G' κ)
 weaken1-command G' (Halt x x₁ x₂) = Halt (inactive-extension x G') x₁ (weaken1-val G' x₂)
 weaken1-command G' (New s κ) = New s (weaken1-cont G' κ)
 weaken1-command G' (Close ss v κ) = Close (splitting-extension G' ss) (weaken1-val G' v) (weaken1-cont G' κ)
@@ -166,8 +166,8 @@ weaken2-cont G' G'' (subsume x κ) = subsume x (weaken2-cont G' G'' κ)
 weaken2-command : ∀ {G} G' G'' → Command (G' ++ G) → Command (G' ++ inactive-clone G'' ++ G)
 weaken2-command G' G'' (Fork ss κ₁ κ₂) with split-append G' ss
 ... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = Fork (splitting-insertion G'' ss' ss0) (weaken2-cont G₁' G'' κ₁) (weaken2-cont G₂' G'' κ₂)
-weaken2-command G' G'' (Stopped ss v κ) with split-append G' ss
-... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = Stopped (splitting-insertion G'' ss' ss0) (weaken2-val G₁' G'' v) (weaken2-cont G₂' G'' κ)
+weaken2-command G' G'' (Ready ss v κ) with split-append G' ss
+... | G₁' , G₂' , G₁ , G₂ , ss' , ss0 , refl , refl = Ready (splitting-insertion G'' ss' ss0) (weaken2-val G₁' G'' v) (weaken2-cont G₂' G'' κ)
 weaken2-command G' G'' (Halt x x₁ x₂) = Halt (inactive-insertion G' G'' x) x₁ (weaken2-val G' G'' x₂)
 weaken2-command G' G'' (New s κ) = New s (weaken2-cont G' G'' κ)
 weaken2-command G' G'' (Close ss v κ) with split-append G' ss

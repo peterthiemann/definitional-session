@@ -43,9 +43,9 @@ module Alternative where
   ... | Gi , ss₁₃ , ss₂₄ with ssplit-refl-right G₁ | ssplit-refl-right G₂
   ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
     Forked , (tappend ss-top ((tcons ss₁₃ (apply-cont ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
-                             (tcons ss₂₄ (Stopped ss-G2GuG2 (VUnit (ssplit-inactive-right ss-G2GuG2)) κ₂) tp))) tp2)
+                             (tcons ss₂₄ (Ready ss-G2GuG2 (VUnit (ssplit-inactive-right ss-G2GuG2)) κ₂) tp))) tp2)
 
-  step ss-top (tcons ss (Stopped ss₁ v κ) tp) tp2 =
+  step ss-top (tcons ss (Ready ss₁ v κ) tp) tp2 =
     Restarted , (tappend ss-top (tsnoc ss tp (apply-cont ss₁ κ v)) tp2)
 
   step ss-top (tcons ss (Halt inaG x₁ x₂) tp) tp2
@@ -56,7 +56,7 @@ module Alternative where
   ... | Gi , ss-GiG1
     with ssplit-inactive-right ss-GiG1
   ... | ina-Gi = New , (tappend (ss-left ss-top) ((tcons (ss-left ss)
-           (Stopped (ss-left ss-GiG1) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan POS (here-pos ina-Gi (subF-refl _))) (VChan NEG (here-neg ina-Gi (subF-refl _)))) (lift-cont κ))
+           (Ready (ss-left ss-GiG1) (VPair (ss-posneg (inactive-ssplit-trivial ina-Gi)) (VChan POS (here-pos ina-Gi (subF-refl _))) (VChan NEG (here-neg ina-Gi (subF-refl _)))) (lift-cont κ))
            (lift-threadpool tp))) (lift-threadpool tp2))
 
   step ss-top (tcons{G₁}{G₂} ss cmd@(Close ss-vκ v κ) tp) tp2
@@ -137,7 +137,7 @@ module Original where
   ... | Gunit , ss-G1GunitG1 | G2unit , ss-G2GuG2 =
     Forked , (tcons ss₁₃ (apply-cont ss-G1GunitG1 κ₁ (VUnit (ssplit-inactive-right ss-G1GunitG1)))
                     (tcons ss₂₄ (apply-cont ss-G2GuG2 κ₂ (VUnit (ssplit-inactive-right ss-G2GuG2))) tp))
-  step (tcons ss (Stopped ss₁ v κ) tp) =
+  step (tcons ss (Ready ss₁ v κ) tp) =
     Restarted , (tsnoc ss tp (apply-cont ss₁ κ v))
   step (tcons ss (Halt inaG x₁ x₂) tp) rewrite inactive-left-ssplit ss inaG =
     Halted , tp

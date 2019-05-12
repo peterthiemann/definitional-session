@@ -56,7 +56,7 @@ data Command (G : SCtx) : Set where
     → (κ₂ : Cont G₂ φ₂ TUnit)
     → Command G
 
-  Stopped : ∀ {φ t G₁ G₂}
+  Ready : ∀ {φ t G₁ G₂}
     → (ss : SSplit G G₁ G₂)
     → (v : Val G₁ t)
     → (κ : Cont G₂ φ t)
@@ -134,11 +134,11 @@ run : ∀ {φ φ₁ φ₂ t G G₁ G₂}
 
 run{G = G}{G₁ = G₁}{G₂ = G₂} tsp ssp (var x) ϱ κ with access ϱ x
 ... | Gx , Gϱ , ina , ssp12 , v rewrite inactive-right-ssplit ssp12 ina =
-  Stopped ssp v κ
+  Ready ssp v κ
 run tsp ssp (nat unr-φ i) ϱ κ =
-  Stopped ssp (VInt i (unrestricted-venv unr-φ ϱ)) κ
+  Ready ssp (VInt i (unrestricted-venv unr-φ ϱ)) κ
 run tsp ssp (unit unr-φ) ϱ κ =
-  Stopped ssp (VUnit (unrestricted-venv unr-φ ϱ)) κ
+  Ready ssp (VUnit (unrestricted-venv unr-φ ϱ)) κ
 run{φ}{φ₁}{φ₂} tsp ssp (letbind{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e₂) ϱ κ₂ with split-env sp ϱ | split-rotate tsp sp
 ... | (G₁ , G₂) , ssp-G1G2 , ϱ₁ , ϱ₂ | φ' , tsp-φ' , φ'-tsp with ssplit-compose ssp ssp-G1G2
 ... | Gi , ssp-3i , ssp-42 =
@@ -147,7 +147,7 @@ run{φ}{φ₁}{φ₂} tsp ssp (letbind{φ₁₁}{φ₁₂}{t₁}{t₂} sp e₁ e
 run tsp ssp (pair sp x₁ x₂) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ x₁ | access ϱ₂ x₂
 ... | Gv₁ , Gr₁ , ina-Gr₁ , ss-v1r1 , v₁ | Gv₂ , Gr₂ , ina-Gr₂ , ss-v2r2 , v₂ rewrite inactive-right-ssplit ss-v1r1 ina-Gr₁ | inactive-right-ssplit ss-v2r2 ina-Gr₂ =
-  Stopped ssp (VPair ss-G1G1'G2' v₁ v₂) κ
+  Ready ssp (VPair ss-G1G1'G2' v₁ v₂) κ
 run tsp ssp (letpair sp p e) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ with access ϱ₁ p
 run tsp ssp (letpair sp p e) ϱ κ | (G₁' , G₂') , ss-G1G1'G2' , ϱ₁ , ϱ₂ | Gvp , Gr , ina-Gr , ss-vpr , VPair ss-GG₁G₂ v₁ v₂ with split-rotate tsp sp
@@ -200,14 +200,14 @@ run tsp ssp (branch{s₁}{s₂} sp ch e-left e-rght) ϱ κ with split-env sp ϱ
 run tsp ssp (ulambda sp unr-φ unr-φ₃ ebody) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₃ ϱ₂
 ... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
-... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ₁ ebody) κ
+... | refl = Ready ssp (VFun (inj₂ unr-φ) ϱ₁ ebody) κ
 run tsp ssp (llambda sp unr-φ₂ ebody) ϱ κ with split-env sp ϱ
 ... | (G₁' , G₂') , ss-g1-g1'-g2' , ϱ₁ , ϱ₂ with unrestricted-venv unr-φ₂ ϱ₂
 ... | ina-G2' with inactive-right-ssplit ss-g1-g1'-g2' ina-G2'
-... | refl = Stopped ssp (VFun (inj₁ refl) ϱ₁ ebody) κ
+... | refl = Ready ssp (VFun (inj₁ refl) ϱ₁ ebody) κ
 run{φ}{φ₁}{φ₂} tsp ssp e@(rec unr-φ ebody) ϱ κ with unrestricted-venv unr-φ ϱ
 ... | ina-G2' with inactive-right-ssplit (ssplit-sym ssp) ina-G2'
-... | refl = Stopped ssp (VFun (inj₂ unr-φ) ϱ (unr-subst UFun (rght (split-all-unr unr-φ)) unr-φ e ebody)) κ
+... | refl = Ready ssp (VFun (inj₂ unr-φ) ϱ (unr-subst UFun (rght (split-all-unr unr-φ)) unr-φ e ebody)) κ
 run tsp ssp (app sp efun earg) ϱ κ with split-env sp ϱ
 ... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ efun
 ... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vfun with access ϱ₂ earg
@@ -216,7 +216,7 @@ run{φ}{φ₁}{φ₂} tsp ssp (app sp efun earg) ϱ κ | (G₁ , G₂) , ss-gg ,
 ... | Gi₁ , ss-g-g5-gi1 , ss-gi1-gi-g2 with inactive-right-ssplit ss-g1g3g4 ina-G₄
 ... | refl with inactive-right-ssplit ss-gi-g1-g6 ina-G₆
 ... | refl with split-from-disjoint φ' φ₂
-... | φ₀ , sp' = Stopped ss-g-g5-gi1 varg (bind sp' ss-gi1-gi-g2 e ϱ₃ κ)
+... | φ₀ , sp' = Ready ss-g-g5-gi1 varg (bind sp' ss-gi1-gi-g2 e ϱ₃ κ)
 run tsp ssp (subsume e t≤t') ϱ κ =
   run tsp ssp e ϱ (subsume t≤t' κ)
 
@@ -264,7 +264,7 @@ lift-cont (subsume t≤t' κ) = subsume t≤t' (lift-cont κ)
 
 lift-command : ∀ {G} → Command G → Command (nothing ∷ G)
 lift-command (Fork ss κ₁ κ₂) = Fork (ss-both ss) (lift-cont κ₁) (lift-cont κ₂)
-lift-command (Stopped ss v κ) = Stopped (ss-both ss) (lift-val v) (lift-cont κ)
+lift-command (Ready ss v κ) = Ready (ss-both ss) (lift-val v) (lift-cont κ)
 lift-command (Halt x unr-t v) = Halt (::-inactive x) unr-t (lift-val v)
 lift-command (New s κ) = New s (lift-cont κ)
 lift-command (Close ss v κ) = Close (ss-both ss) (lift-val v) (lift-cont κ)
@@ -308,9 +308,9 @@ matchWaitAndGo ss-top cl-info ss-tp  (tnil ina) tp-acc = nothing
 matchWaitAndGo ss-top cl-info ss-tp  (tcons ss (Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Fork ss₁ κ₁ κ₂) tp-acc)
-matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchWaitAndGo ss-top cl-info ss-tp (tcons ss (Ready ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
-  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Stopped ss₁ v κ) tp-acc)
+  matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' (Ready ss₁ v κ) tp-acc)
 matchWaitAndGo ss-top cl-info ss-tp (tcons ss cmd@(Halt x _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo ss-top cl-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -348,7 +348,7 @@ matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (
 ... | Gunit , ina-Gunit , ss-stopped with extract-inactive-from-cont UUnit κ
 ... | Gunit' , ina-Gunit' , ss-stopped' with ssplit-compose ss-gtpacc (ssplit-sym ss-g4g2)
 ... | Gi'' , ss-int , ss-g2gacc with ssplit-compose2 ss-others ss-int
-... | Gi''' , ss-other , ss-outer-cons = just (Gother , tappend (ssplit-sym ss-other) tp-wl (tcons ss-outer-cons (Stopped ss-stopped (VUnit ina-Gunit) cl-κ) (tcons ss-g2gacc (Stopped ss-stopped' (VUnit ina-Gunit') κ) tp-acc)))
+... | Gi''' , ss-other , ss-outer-cons = just (Gother , tappend (ssplit-sym ss-other) tp-wl (tcons ss-outer-cons (Ready ss-stopped (VUnit ina-Gunit) cl-κ) (tcons ss-g2gacc (Ready ss-stopped' (VUnit ina-Gunit') κ) tp-acc)))
 
 matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
   → SSplit G Gc Gtp
@@ -360,7 +360,7 @@ matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
 matchSendAndGo ss-top recv-info ss-tp (tnil ina) tp-acc = nothing
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
-matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Ready ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchSendAndGo ss-top recv-info ss-tp (tcons ss cmd@(Halt _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -390,7 +390,7 @@ matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons
 ... | GG1' , GG2' , ss-GG-GG1'-GG2' , ss-GG1'-GG11-Gc2 , ss-GG2'-G12-Gi'' with ssplit-rotate ss-GG2'-G12-Gi'' ss-Gi''GiGi1 ss-gig12g3
 ... | Gi''+ , Gi+ , ss-GG2-G12-Gi''+ , ss-Gi''+Gi+Gsi , ss-Gi+-G12-G4 with ssplit-join ss-GG-GG1'-GG2' ss-GG1'-GG11-Gc2 ss-GG2-G12-Gi''+
 ... | GG1'' , GG2'' , ss-GG-GG1''-GG2'' , ss-GG1''-GG11-G12 , ss-GG2''-Gc2-Gi''+ with ssplit-compose3 ss-GG-GG1''-GG2'' ss-GG2''-Gc2-Gi''+
-... | _ , ss-GG-Gii-Gi''+ , ss-Gii-GG1''-Gc2 = just (GG ,  (tcons ss-GG-Gii-Gi''+ (Stopped ss-Gii-GG1''-Gc2 (VPair ss-GG1''-GG11-G12 (VChan b₁ vcr-recv) (coerce v t≤t1)) κ-rv {-κ-rv-}) (tcons ss-Gi''+Gi+Gsi (Stopped ss-Gi+-G12-G4 (VChan b vcr-send) κ) (tappend ss-Gi1G2Gtpacc tp-wl tp-acc))))
+... | _ , ss-GG-Gii-Gi''+ , ss-Gii-GG1''-Gc2 = just (GG ,  (tcons ss-GG-Gii-Gi''+ (Ready ss-Gii-GG1''-Gc2 (VPair ss-GG1''-GG11-G12 (VChan b₁ vcr-recv) (coerce v t≤t1)) κ-rv {-κ-rv-}) (tcons ss-Gi''+Gi+Gsi (Ready ss-Gi+-G12-G4 (VChan b vcr-send) κ) (tappend ss-Gi1G2Gtpacc tp-wl tp-acc))))
 matchSendAndGo ss-top recv-info@(ss-rv , VChan b₁ vcr₁ , κ-rv) ss-tp (tcons ss cmd@(Send ss₁ ss-args (VChan b vcr) v κ) tp-wl) tp-acc | Gi , ss-g1g11gi , ss-gig12g3 | Gi' , ss-gtpwlg11g2 , ss-gi'gig2 | Gi'' , ss-gtpg11gi'' , ss-gi''gi'gtpacc | G₁' , G₂' , ss-gg1'g2' , ss-g1'gc1g11 , ss-g2'gc2gi'' | nothing with ssplit-compose5 ss-tp ss
 ... | Gi0 , ss-tp' , ss' = matchSendAndGo ss-top recv-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 
@@ -404,7 +404,7 @@ matchBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ s₁ s₂}
 matchBranchAndGo ss-top select-info ss-tp (tnil ina) tp-acc = nothing
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Fork ss₁ κ₁ κ₂) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
-matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Stopped ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
+matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Ready ss₁ v κ) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
 matchBranchAndGo ss-top select-info ss-tp (tcons ss cmd@(Halt _ _ _) tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchBranchAndGo ss-top select-info ss-tp' tp-wl (tcons ss' cmd tp-acc)
@@ -433,7 +433,7 @@ matchBranchAndGo ss-top select-info@(ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-t
 matchBranchAndGo ss-top (ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-tp (tcons ss (Branch ss₁ (VChan b vcr) dcont) tp-wl) tp-acc | Gi , ss-gtpwl-g3-gi , ss-gi-g4-g2 | Gi1 , ss-gtp-g3-gi1 , ss-gi1-gi-gtpacc | Gc' , Gtp' , ss-g-gc'-gtp' , ss-gc'-gc1-g1 , ss-gtp'-gc2-gi1 | just (ds3=s1 , ds4=s2 , GG , GG1 , GG11 , GG12 , ssplit2 ss1' ss2'  , vcr-sel , vcr-bra) with ssplit-compose ss-gi1-gi-gtpacc ss-gi-g4-g2
 ... | Gi2 , ss-gi1-g3-gi2 , ss-gi2-g2-gtpacc with ssplit-join ss1' ss2' ss-gtp'-gc2-gi1
 ... | GGG1 , GGG2 , ss-GG-ggg1-ggg2 , ss-ggg1-gc1-gc2 , ss-ggg2-g1-gi1 with ssplit-compose3 ss-ggg2-g1-gi1 ss-gi1-g3-gi2
-... | Gi3 , ss-ggg2-gi3-gi2 , ss-gi3-gg12-g2 = just (GG , tcons ss-GG-ggg1-ggg2 (Stopped ss-ggg1-gc1-gc2 (VChan b₁ vcr-sel) κ) (tcons ss-ggg2-gi3-gi2 (Stopped ss-gi3-gg12-g2 (VChan b vcr-bra) (dcont lab)) (tappend ss-gi2-g2-gtpacc tp-wl tp-acc)))
+... | Gi3 , ss-ggg2-gi3-gi2 , ss-gi3-gg12-g2 = just (GG , tcons ss-GG-ggg1-ggg2 (Ready ss-ggg1-gc1-gc2 (VChan b₁ vcr-sel) κ) (tcons ss-ggg2-gi3-gi2 (Ready ss-gi3-gg12-g2 (VChan b vcr-bra) (dcont lab)) (tappend ss-gi2-g2-gtpacc tp-wl tp-acc)))
 
 matchNBranchAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ m alt}
   → SSplit G Gc Gtp
@@ -452,6 +452,6 @@ matchNBranchAndGo ss-top nselect-info@(ss-vκ , lab , VChan b₁ vcr₁ , κ) ss
 matchNBranchAndGo ss-top (ss-vκ , lab , VChan b₁ vcr₁ , κ) ss-tp (tcons ss (NBranch ss₁ (VChan b vcr) dcont) tp-wl) tp-acc | Gi , ss-gtpwl-g3-gi , ss-gi-g4-g2 | Gi1 , ss-gtp-g3-gi1 , ss-gi1-gi-gtpacc | Gc' , Gtp' , ss-g-gc'-gtp' , ss-gc'-gc1-g1 , ss-gtp'-gc2-gi1 | just (m1≤m , ds3=s1 , GG , GG1 , GG11 , GG12 , ssplit2 ss1' ss2'  , vcr-sel , vcr-bra) with ssplit-compose ss-gi1-gi-gtpacc ss-gi-g4-g2
 ... | Gi2 , ss-gi1-g3-gi2 , ss-gi2-g2-gtpacc with ssplit-join ss1' ss2' ss-gtp'-gc2-gi1
 ... | GGG1 , GGG2 , ss-GG-ggg1-ggg2 , ss-ggg1-gc1-gc2 , ss-ggg2-g1-gi1 with ssplit-compose3 ss-ggg2-g1-gi1 ss-gi1-g3-gi2
-... | Gi3 , ss-ggg2-gi3-gi2 , ss-gi3-gg12-g2 = just (GG , tcons ss-GG-ggg1-ggg2 (Stopped ss-ggg1-gc1-gc2 (VChan b₁ vcr-sel) κ) (tcons ss-ggg2-gi3-gi2 (Stopped ss-gi3-gg12-g2 (VChan b vcr-bra) (dcont (inject≤ lab m1≤m))) (tappend ss-gi2-g2-gtpacc tp-wl tp-acc)))
+... | Gi3 , ss-ggg2-gi3-gi2 , ss-gi3-gg12-g2 = just (GG , tcons ss-GG-ggg1-ggg2 (Ready ss-ggg1-gc1-gc2 (VChan b₁ vcr-sel) κ) (tcons ss-ggg2-gi3-gi2 (Ready ss-gi3-gg12-g2 (VChan b vcr-bra) (dcont (inject≤ lab m1≤m))) (tappend ss-gi2-g2-gtpacc tp-wl tp-acc)))
 matchNBranchAndGo ss-top nselect-info ss-tp (tcons ss cmd tp-wl) tp-acc with ssplit-compose5 ss-tp ss
 ... | Gi , ss-tp' , ss' = matchNBranchAndGo ss-top nselect-info ss-tp' tp-wl (tcons ss' cmd tp-acc)

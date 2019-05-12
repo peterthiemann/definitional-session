@@ -23,7 +23,7 @@ one-step{G} (G1 , tp)
 ... | ev , tp' = ev , ( _ , tp')
 
 restart : ∀ {G} → Command G → Command G
-restart (Stopped ss v κ) = apply-cont ss κ v
+restart (Ready ss v κ) = apply-cont ss κ v
 restart cmd = cmd
 
 -- auxiliary lemmas

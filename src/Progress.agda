@@ -50,7 +50,7 @@ matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(For
   with ssplit-compose5 ss-GG' ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
-matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Stopped ss₁ v κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
+matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Ready ss₁ v κ) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
 ... | Gi , ss-tp' , ss' =
   matchWaitAndGo-preserves-paired all-paired tp' (tcons ss' cmd tp'') match-≡
 matchWaitAndGo-preserves-paired {ss-GG' =  ss-GG'} all-paired (tcons ss cmd@(Halt x x₁ x₂) tp') tp'' match-≡  with ssplit-compose5 ss-GG' ss
@@ -99,7 +99,7 @@ step-preserves-paired : ∀ {G G' ev tp'} → All Paired G → (tp : ThreadPool 
 step-preserves-paired all-paired tp step-≡ with tp
 step-preserves-paired all-paired tp refl | tnil ina = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (Fork ss₁ κ₁ κ₂) tp' = all-paired
-step-preserves-paired all-paired tp refl | tcons ss (Stopped ss₁ v κ) tp' = all-paired
+step-preserves-paired all-paired tp refl | tcons ss (Ready ss₁ v κ) tp' = all-paired
 step-preserves-paired all-paired tp step-≡ | tcons ss (Halt x x₁ x₂) tp' with inactive-left-ssplit ss x
 step-preserves-paired all-paired tp refl | tcons ss (Halt x x₁ x₂) tp' | refl = all-paired
 step-preserves-paired all-paired tp refl | tcons ss (New s κ) tp' = aon-all ∷ all-paired
@@ -134,7 +134,7 @@ step-preserves-paired all-paired tp refl | tcons ss (NBranch ss₁ vch dcont) tp
 topCanStep : ∀ {G} → ThreadPool G → Set
 topCanStep (tnil ina) = ⊥
 topCanStep (tcons ss (Fork ss₁ κ₁ κ₂) tp) = ⊤
-topCanStep (tcons ss (Stopped ss₁ v κ) tp) = ⊤
+topCanStep (tcons ss (Ready ss₁ v κ) tp) = ⊤
 topCanStep (tcons ss (Halt x x₁ x₂) tp) = ⊤
 topCanStep (tcons ss (New s κ) tp) = ⊤
 topCanStep (tcons{G₁}{G₂} ss (Close ss-vκ v κ) tp) with ssplit-refl-left-inactive G₂
