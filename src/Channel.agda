@@ -1,6 +1,6 @@
 module Channel where
 
-open import Data.Bool
+open import Data.Bool hiding (_≤_)
 open import Data.Fin hiding (_≤_)
 open import Data.List hiding (map)
 open import Data.Maybe
