@@ -8,7 +8,7 @@ jobs:
       - run:
           name: Initialize nix environment
           command: |
-	    nix-channel --add https://nixos.org/channels/nixpkgs-unstable && nix-channel --update
+            nix-channel --add https://nixos.org/channels/nixpkgs-unstable && nix-channel --update
             nix-env -iA nixpkgs.haskellPackages.Agda nixpkgs.gitMinimal nixpkgs.openssh
             agda --version
       - checkout
