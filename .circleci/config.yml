@@ -8,7 +8,7 @@ jobs:
       - run:
           name: Initialize nix environment
           command: |
-            nix-env -iA nixpkgs.haskellPackages.Agda nixpkgs.gitMinimal nixpkgs.openssh
+            nix-env -f "<nixpkgs>" -iA haskellPackages.Agda gitMinimal openssh
             agda --version
       - checkout
 
