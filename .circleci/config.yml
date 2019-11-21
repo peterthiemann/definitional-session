@@ -29,7 +29,8 @@ jobs:
             echo "standard-library" >> ~/.agda/defaults
       - run:
           name: Build (almost) the whole development
-          command: agda src/Schedule.agda
+	  working_directory: src
+          command: agda Schedule.agda
 
 # workflows:
 #   version: 2
