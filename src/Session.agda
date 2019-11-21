@@ -84,13 +84,13 @@ data Command (G : SCtx) : Set where
   Send : ∀ {φ G₁ G₂ G₁₁ G₁₂ t s}
     → (ss : SSplit G G₁ G₂)
     → (ss-args : SSplit G₁ G₁₁ G₁₂)
-    → (vch : Val G₁₁ (TChan (send t s)))
+    → (vch : Val G₁₁ (TChan (Expr.send t s)))
     → (v : Val G₁₂ t)
     → (κ : Cont G₂ φ (TChan (SType.force s)))
     → Command G
   Recv : ∀ {φ G₁ G₂ t s}
     → (ss : SSplit G G₁ G₂)
-    → (vch : Val G₁ (TChan (recv t s)))
+    → (vch : Val G₁ (TChan (Expr.recv t s)))
     → (κ : Cont G₂ φ (TPair (TChan (SType.force s)) t))
     → Command G
   Select : ∀ {φ G₁ G₂ s₁ s₂}
@@ -167,12 +167,12 @@ run tsp ssp (close ch) ϱ κ | Gch , Gϱ , ina , ssp12 , vch | vch' | refl = Clo
 run tsp ssp (wait ch) ϱ κ with access ϱ ch
 ... | Gch , Gϱ , ina , ssp12 , vch with vch | inactive-right-ssplit ssp12 ina
 ... | vch' | refl = Wait ssp vch' κ
-run tsp ssp (send sp ch vv) ϱ κ with split-env sp ϱ
+run tsp ssp (Expr.send sp ch vv) ϱ κ with split-env sp ϱ
 ... | (G₁ , G₂) , ss-gg , ϱ₁ , ϱ₂ with access ϱ₁ ch
 ... | G₃ , G₄ , ina-G₄ , ss-g1g3g4 , vch with access ϱ₂ vv
 ... | G₅ , G₆ , ina-G₆ , ss-g2g5g6 , vvv with ssplit-join ss-gg ss-g1g3g4 ss-g2g5g6
 ... | G₁' , G₂' , ss-g1'g2' , ss-g3g5 , ss-g4g6 rewrite sym (inactive-right-ssplit ss-g1g3g4 ina-G₄) | sym (inactive-right-ssplit ss-g2g5g6 ina-G₆) = Send ssp ss-gg vch vvv κ
-run tsp ssp (recv ch) ϱ κ with access ϱ ch
+run tsp ssp (Expr.recv ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = Recv ssp vch κ
 run tsp ssp (nselect lab ch) ϱ κ with access ϱ ch
 ... | G₁ , G₂ , ina-G₂ , ss-vi , vch rewrite inactive-right-ssplit ss-vi ina-G₂ = NSelect ssp lab vch κ
@@ -353,7 +353,7 @@ matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (
 matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
   → SSplit G Gc Gtp
   -- read command
-  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (recv t s)) × Cont Gc₂ φ (TPair (TChan (SType.force s)) t)
+  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (Expr.recv t s)) × Cont Gc₂ φ (TPair (TChan (SType.force s)) t)
   -- focused thread pool
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (∃ λ G' → ThreadPool G')

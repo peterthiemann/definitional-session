@@ -1,0 +1,35 @@
+version: 2
+jobs:
+  build:
+    docker:
+      # terrorjack's awesome docker image
+      # - image: terrorjack/rakuen:ghc-8.2.1.20171108
+      # - image: terrorjack/meikyu:ghc-8.2.1.20171108
+      # - image: terrorjack/meikyu:nightly-2017-12-05
+      - image: terrorjack/pixie
+
+    steps:
+      - run:
+          name: Initialize nix environment
+          command: |
+            nix-env -iA nixpkgs.haskellPackages.Agda nixpkgs.gitMinimal nixpkgs.openssh
+            agda --version
+      - checkout
+
+      # - run:
+      #     name: Install Agda
+      #     command: |
+      #       stack --resolver nightly install alex cpphs happy Agda
+      #       agda --version
+      #     no_output_timeout: 1.2h
+
+      - run:
+          name: Install the Agda Standard lib
+          command: |
+            git clone https://github.com/agda/agda-stdlib.git ~/agda-stdlib/
+            mkdir ~/.agda
+            echo "~/agda-stdlib/standard-library.agda-lib" >> ~/.agda/libraries
+            echo "standard-library" >> ~/.agda/defaults
+      - run:
+          name: Build (almost) the whole development
+          command: agda src/Schedule.agda
