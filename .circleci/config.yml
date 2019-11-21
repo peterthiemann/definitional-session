@@ -8,7 +8,8 @@ jobs:
       - run:
           name: Initialize nix environment
           command: |
-            nix-env -f "<nixpkgs>" -iA haskellPackages.Agda gitMinimal openssh
+	    nix-channel --add https://nixos.org/channels/nixpkgs-unstable && nix-channel --update
+            nix-env -iA nixpkgs.haskellPackages.Agda nixpkgs.gitMinimal nixpkgs.openssh
             agda --version
       - checkout
 
@@ -30,9 +31,9 @@ jobs:
           name: Build (almost) the whole development
           command: agda src/Schedule.agda
 
-workflows:
-  version: 2
-  build_and_test:
-    jobs:
-      - build
+# workflows:
+#   version: 2
+#   build_and_test:
+#     jobs:
+#       - build
 #      - test
