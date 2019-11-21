@@ -1,7 +1,7 @@
 module Global where
 
 open import Data.List
-open import Data.Maybe hiding (All)
+open import Data.Maybe
 open import Data.Product
 open import Relation.Binary.PropositionalEquality
 

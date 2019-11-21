@@ -5,7 +5,7 @@ open import Data.Fin
 open import Data.Empty
 open import Data.List
 open import Data.List.All
-open import Data.Maybe hiding (All)
+open import Data.Maybe
 open import Data.Nat
 open import Data.Product
 open import Data.Sum
@@ -84,13 +84,13 @@ data Command (G : SCtx) : Set where
   Send : ∀ {φ G₁ G₂ G₁₁ G₁₂ t s}
     → (ss : SSplit G G₁ G₂)
     → (ss-args : SSplit G₁ G₁₁ G₁₂)
-    → (vch : Val G₁₁ (TChan (Expr.send t s)))
+    → (vch : Val G₁₁ (TChan (Typing.send t s)))
     → (v : Val G₁₂ t)
     → (κ : Cont G₂ φ (TChan (SType.force s)))
     → Command G
   Recv : ∀ {φ G₁ G₂ t s}
     → (ss : SSplit G G₁ G₂)
-    → (vch : Val G₁ (TChan (Expr.recv t s)))
+    → (vch : Val G₁ (TChan (Typing.recv t s)))
     → (κ : Cont G₂ φ (TPair (TChan (SType.force s)) t))
     → Command G
   Select : ∀ {φ G₁ G₂ s₁ s₂}
@@ -353,7 +353,7 @@ matchWaitAndGo{Gc₂ = Gc₂} ss-top (ss-cl , VChan cl-b cl-vcr , cl-κ) ss-tp (
 matchSendAndGo : ∀ {G Gc Gc₁ Gc₂ Gtp Gtpwl Gtpacc φ t s}
   → SSplit G Gc Gtp
   -- read command
-  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (Expr.recv t s)) × Cont Gc₂ φ (TPair (TChan (SType.force s)) t)
+  → SSplit Gc Gc₁ Gc₂ × Val Gc₁ (TChan (Typing.recv t s)) × Cont Gc₂ φ (TPair (TChan (SType.force s)) t)
   -- focused thread pool
   → SSplit Gtp Gtpwl Gtpacc → ThreadPool Gtpwl → ThreadPool Gtpacc
   → Maybe (∃ λ G' → ThreadPool G')

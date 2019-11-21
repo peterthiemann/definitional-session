@@ -26,14 +26,14 @@ ex1dual =
 -- sending and receiving
 ex2 : Expr [] TUnit
 ex2 =
-  letbind [] (new [] (delay (send TInt (delay send!))))
+  letbind [] (new [] (delay (Typing.send TInt (delay send!))))
   (letpair (left []) (here [])
   (letbind (left (rght []))
            (fork (letbind (rght []) (nat [] 42)
-                 (letbind (left (left [])) (send (rght (left [])) (here []) (here []))
+                 (letbind (left (left [])) (Expr.send (rght (left [])) (here []) (here []))
                  (letbind (left []) (close (here []))
                  (var (here []))))))
-  (letbind (rght (left [])) (recv (here []))
+  (letbind (rght (left [])) (Expr.recv (here []))
   (letpair (left (rght [])) (here [])
   (letbind (left (left (rght []))) (wait (here (UInt ∷ [])))
   (var (here (UUnit ∷ []))))))))
@@ -41,15 +41,15 @@ ex2 =
 -- higher order sending and receiving
 ex3 : Expr [] TUnit
 ex3 =
-  letbind [] (new [] (delay (send (TChan send!) (delay send!))))
+  letbind [] (new [] (delay (Typing.send (TChan send!) (delay send!))))
   (letbind (rght []) (new [] (delay send!))
   (letpair (left (rght [])) (here [])
   (letpair (rght (rght (left []))) (here [])
   (letbind (left (rght (left (left []))))
-           (fork (letbind (left (left (rght []))) (send (left (rght [])) (here []) (here []))
+           (fork (letbind (left (left (rght []))) (Expr.send (left (rght [])) (here []) (here []))
                  (letbind (left (rght [])) (close (here []))
                  (wait (there UUnit (here []))))))
-  (letbind (left (left [])) (recv (there UUnit (here [])))
+  (letbind (left (left [])) (Expr.recv (there UUnit (here [])))
   (letpair (left []) (here [])
   (letbind (left (rght [])) (wait (here []))
   (letbind (left (left [])) (close (there UUnit (here [])))

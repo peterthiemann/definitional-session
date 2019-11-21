@@ -5,7 +5,7 @@ open import Data.Fin
 open import Data.Empty
 open import Data.List
 open import Data.List.All
-open import Data.Maybe hiding (All)
+open import Data.Maybe
 open import Data.Nat
 open import Data.Product
 open import Data.Sum

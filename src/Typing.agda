@@ -3,7 +3,7 @@ module Typing where
 open import Data.Fin hiding (_≤_)
 open import Data.List hiding (drop)
 open import Data.List.All
-open import Data.Maybe hiding (All)
+open import Data.Maybe
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Product
