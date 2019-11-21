@@ -2,10 +2,6 @@ version: 2
 jobs:
   build:
     docker:
-      # terrorjack's awesome docker image
-      # - image: terrorjack/rakuen:ghc-8.2.1.20171108
-      # - image: terrorjack/meikyu:ghc-8.2.1.20171108
-      # - image: terrorjack/meikyu:nightly-2017-12-05
       - image: terrorjack/pixie
 
     steps:
@@ -33,3 +29,10 @@ jobs:
       - run:
           name: Build (almost) the whole development
           command: agda src/Schedule.agda
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+#      - test
